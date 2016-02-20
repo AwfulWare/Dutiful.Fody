@@ -11,7 +11,8 @@ public class WeaverTests
     Assembly assembly;
     string newAssemblyPath;
     string assemblyPath;
-    Type targetType;
+    Type targetClass;
+    Type targetStruct;
 
     [TestFixtureSetUp]
     public void Setup()
@@ -35,55 +36,63 @@ public class WeaverTests
         moduleDefinition.Write(newAssemblyPath);
 
         assembly = Assembly.LoadFile(newAssemblyPath);
-        targetType = assembly.GetType("AssemblyToProcess.TargetClass");
+        targetClass = assembly.GetType("TargetClass");
+        targetStruct = assembly.GetType("TargetStruct");
     }
 
     [Test]
     public void ValidateSimpleMethods()
     {
-        dynamic instance = Activator.CreateInstance(targetType);
+        dynamic instance = Activator.CreateInstance(targetClass);
         var sw = instance.SpawnStopwatch();
 
         Assert.IsInstanceOf<Stopwatch>(sw);
         Assert.AreEqual(instance, instance.SpawnStopwatchDutiful());
+
+        Assert.AreEqual(instance, instance.NOOPDutiful());
+
+        Assert.IsInstanceOf(targetStruct, ((dynamic)Activator.CreateInstance(targetStruct)).NOOPDutiful());
     }
 
     [Test]
-    public void ValidateOutputMethods()
+    public void ValidateClassArguments()
     {
-        dynamic instance = Activator.CreateInstance(targetType);
-
-        {
-            string output;
-            var result = instance.TryMakeString("<{0}>", 233, out output);
-            Assert.True(result);
-            Assert.AreEqual("<233>", output);
-        }
-        {
-            string output;
-            var result = instance.TryMakeStringDutiful("<{0}>", 233, out output);
-            Assert.AreEqual(instance, result);
-            Assert.AreEqual("<233>", output);
-        }
-    }
-
-    [Test]
-    public void ValidateMoreArguments()
-    {
-        dynamic instance = Activator.CreateInstance(targetType);
+        dynamic instance = Activator.CreateInstance(targetClass);
 
         const string format = "{2}:\t{0}{3}{1}@{4}";
-        var expected = $"233:\t{{{new object()}}}@{IntPtr.Zero}";
+        var expected = $"233:\t{{{targetClass.FullName}}}@{IntPtr.Zero}";
 
         {
             string output;
-            var result = instance.TryMakeString(format, 233, new object(), IntPtr.Zero, out output);
+            var result = instance.TryMakeString(format, 233, IntPtr.Zero, out output);
             Assert.True(result);
             Assert.AreEqual(expected, output);
         }
         {
             string output;
-            var result = instance.TryMakeStringDutiful(format, 233, new object(), IntPtr.Zero, out output);
+            var result = instance.TryMakeStringDutiful(format, 233, IntPtr.Zero, out output);
+            Assert.AreEqual(instance, result);
+            Assert.AreEqual(expected, output);
+        }
+    }
+
+    [Test]
+    public void ValidateStructArguments()
+    {
+        dynamic instance = Activator.CreateInstance(targetStruct);
+
+        const string format = "{2}:\t{0}{3}{1}@{4}";
+        var expected = $"233:\t{{{targetStruct.FullName}}}@{IntPtr.Zero}";
+
+        {
+            string output;
+            var result = instance.TryMakeString(format, 233, IntPtr.Zero, out output);
+            Assert.True(result);
+            Assert.AreEqual(expected, output);
+        }
+        {
+            string output;
+            var result = instance.TryMakeStringDutiful(format, 233, IntPtr.Zero, out output);
             Assert.AreEqual(instance, result);
             Assert.AreEqual(expected, output);
         }

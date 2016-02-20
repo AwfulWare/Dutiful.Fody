@@ -22,7 +22,6 @@ public class ModuleWeaver
         LogInfo = m => { };
     }
 
-
     private static void LoadArguments(ILProcessor processor, ushort count)
     {
         processor.Emit(OpCodes.Ldarg_0);
@@ -53,7 +52,8 @@ public class ModuleWeaver
         LoadArguments(processor, (ushort)parameters.Count);
 
         processor.Emit(OpCodes.Callvirt, method);
-        processor.Emit(OpCodes.Pop);
+        if (method.ReturnType != typeSystem.Void)
+            processor.Emit(OpCodes.Pop);
 
         processor.Emit(OpCodes.Ldarg_0);
         processor.Emit(OpCodes.Ret);
@@ -68,7 +68,7 @@ public class ModuleWeaver
             & !m.IsStatic | m.SemanticsAttributes == MethodSemanticsAttributes.None).ToArray())
         {
             var returnType = method.ReturnType;
-            if (returnType == typeSystem.Void || returnType == type)
+            if (returnType == type)
                 continue;
 
             type.Methods.Add(MakeDutifulVariant(method));
