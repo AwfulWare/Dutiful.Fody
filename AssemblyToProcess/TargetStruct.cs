@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-public struct TargetStruct
+public struct TargetStruct : TargetInterface
 {
     public void NOOP() { }
 
@@ -14,4 +14,7 @@ public struct TargetStruct
 
     private void PrivateNOOP() { }
     internal void AssemblyNOOP() { }
+
+    public override string ToString()
+        => base.ToString();
 }

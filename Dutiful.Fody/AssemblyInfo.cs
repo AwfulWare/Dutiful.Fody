@@ -3,4 +3,4 @@
 [assembly: AssemblyTitle("Dutiful.Fody")]
 [assembly: AssemblyProduct("Dutiful.Fody")]
 [assembly: AssemblyVersion("0.1")]
-[assembly: AssemblyInformationalVersion("0.1-c")]
+[assembly: AssemblyInformationalVersion("0.1-d")]

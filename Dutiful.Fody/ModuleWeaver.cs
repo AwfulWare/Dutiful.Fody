@@ -65,7 +65,7 @@ public class ModuleWeaver
         LogInfo($"Processing type \"{type.FullName}\"...");
 
         foreach (var method in type.Methods.Where(m => (m.IsPublic || m.IsFamily)
-            & !m.IsStatic | m.SemanticsAttributes == MethodSemanticsAttributes.None).ToArray())
+            && !(m.IsStatic || m.IsConstructor) && m.SemanticsAttributes == MethodSemanticsAttributes.None).ToArray())
         {
             var returnType = method.ReturnType;
             if (returnType == type)
@@ -79,7 +79,7 @@ public class ModuleWeaver
     {
         typeSystem = ModuleDefinition.TypeSystem;
 
-        foreach (var type in ModuleDefinition.Types.Where(t => t.IsPublic))
+        foreach (var type in ModuleDefinition.Types.Where(t => t.IsPublic && !(t.IsEnum || t.IsInterface)))
             AddDutifulMethods(type);
     }
 
