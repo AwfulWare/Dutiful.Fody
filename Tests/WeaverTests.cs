@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Xml.Linq;
+using Microsoft.CSharp.RuntimeBinder;
 using Mono.Cecil;
 using NUnit.Framework;
-using System.Diagnostics;
-using Microsoft.CSharp.RuntimeBinder;
 
 [TestFixture]
 public class WeaverTests
@@ -30,7 +31,8 @@ public class WeaverTests
         var moduleDefinition = ModuleDefinition.ReadModule(newAssemblyPath);
         var weavingTask = new ModuleWeaver
         {
-            ModuleDefinition = moduleDefinition
+            Config = XElement.Parse(@"<Dutiful NameFormat=""{0}Careless""/>"),
+            ModuleDefinition = moduleDefinition,
         };
 
         weavingTask.Execute();
@@ -48,7 +50,15 @@ public class WeaverTests
 
         Assert.AreEqual(instance, instance.JustMe());
 
-        Assert.Throws<RuntimeBinderException>(() => instance.JustMeDutiful());
+        Assert.Throws<RuntimeBinderException>(() => instance.JustMeCareless());
+    }
+
+    [Test]
+    public void ValidateStopWords()
+    {
+        dynamic instance = Activator.CreateInstance(targetStruct);
+        Assert.Throws<RuntimeBinderException>(() => instance.EqualsCareless(null));
+        Assert.Throws<RuntimeBinderException>(() => instance.ToStringCareless());
     }
 
     [Test]
@@ -58,11 +68,11 @@ public class WeaverTests
         var sw = instance.SpawnStopwatch();
 
         Assert.IsInstanceOf<Stopwatch>(sw);
-        Assert.AreEqual(instance, instance.SpawnStopwatchDutiful());
+        Assert.AreEqual(instance, instance.SpawnStopwatchCareless());
 
-        Assert.AreEqual(instance, instance.NOOPDutiful());
+        Assert.AreEqual(instance, instance.NOOPCareless());
 
-        Assert.IsInstanceOf(targetStruct, ((dynamic)Activator.CreateInstance(targetStruct)).NOOPDutiful());
+        Assert.IsInstanceOf(targetStruct, ((dynamic)Activator.CreateInstance(targetStruct)).NOOPCareless());
     }
 
     [Test]
@@ -81,7 +91,7 @@ public class WeaverTests
         }
         {
             string output;
-            var result = instance.TryMakeStringDutiful(format, 233, IntPtr.Zero, out output);
+            var result = instance.TryMakeStringCareless(format, 233, IntPtr.Zero, out output);
             Assert.AreEqual(instance, result);
             Assert.AreEqual(expected, output);
         }
@@ -103,7 +113,7 @@ public class WeaverTests
         }
         {
             string output;
-            var result = instance.TryMakeStringDutiful(format, 233, IntPtr.Zero, out output);
+            var result = instance.TryMakeStringCareless(format, 233, IntPtr.Zero, out output);
             Assert.AreEqual(instance, result);
             Assert.AreEqual(expected, output);
         }

@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Mono.Cecil;
-using Mono.Cecil.Rocks;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 using static Mono.Cecil.MethodAttributes;
 
@@ -12,7 +14,12 @@ public class ModuleWeaver
     public Action<string> LogInfo { get; set; }
 
     // An instance of Mono.Cecil.ModuleDefinition for processing
+    public XElement Config { get; set; }
     public ModuleDefinition ModuleDefinition { get; set; }
+    private string methodNameFormat;
+    private Regex StopTypeForDeclaring;
+    private Regex StopNameForMethod;
+    private Regex StopTypeForReturn;
 
     TypeSystem typeSystem;
 
@@ -34,7 +41,7 @@ public class ModuleWeaver
     }
     private MethodDefinition MakeDutifulVariant(MethodDefinition method)
     {
-        var name = method.Name + "Dutiful";
+        var name = string.Format(methodNameFormat, method.Name);
         LogInfo($"Weaving method \"{name}\"...");
 
         var attributes = method.Attributes & (MemberAccessMask | HideBySig | Static);
@@ -71,6 +78,21 @@ public class ModuleWeaver
             if (returnType == type)
                 continue;
 
+            if (StopTypeForDeclaring.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
+                continue;
+
+            if (StopNameForMethod != null)
+            {
+                if (StopNameForMethod.IsMatch(method.Name))
+                    continue;
+            }
+
+            if (StopTypeForReturn != null)
+            {
+                if (StopTypeForReturn.IsMatch(returnType.FullName))
+                    continue;
+            }
+
             type.Methods.Add(MakeDutifulVariant(method));
         }
     }
@@ -79,8 +101,56 @@ public class ModuleWeaver
     {
         typeSystem = ModuleDefinition.TypeSystem;
 
+        SetupFromConfig();
+
         foreach (var type in ModuleDefinition.Types.Where(t => t.IsPublic && !(t.IsEnum || t.IsInterface)))
             AddDutifulMethods(type);
     }
 
+    private void SetupFromConfig()
+    {
+        methodNameFormat = (Config?.Attribute("NameFormat")?.Value) ?? "Dutiful{0}";
+
+        {
+            var stopDeclaringPattern = Config?.Attribute("StopNameForDeclaringType")?.Value;
+            if (stopDeclaringPattern == null)
+                stopDeclaringPattern = '@' + typeSystem.Object.FullName;
+            else
+                stopDeclaringPattern = stopDeclaringPattern.Trim();
+
+            if (stopDeclaringPattern != "" && stopDeclaringPattern[0] == '@')
+                stopDeclaringPattern = Regex.Escape(stopDeclaringPattern.Substring(1).TrimStart());
+            else
+                new Regex(stopDeclaringPattern);
+
+            StopTypeForDeclaring = new Regex("^(?:" + stopDeclaringPattern + ")$");
+        }
+
+        {
+            var stopMethodPattern = Config?.Attribute("StopNameForMethod")?.Value;
+            if (string.IsNullOrWhiteSpace(stopMethodPattern))
+                StopNameForMethod = null;
+            else
+            {
+                stopMethodPattern = stopMethodPattern.Trim();
+                new Regex(stopMethodPattern);
+                StopNameForMethod = new Regex("^(?:" + stopMethodPattern + ")$");
+            }
+        }
+
+        {
+            var stopReturnPattern = Config?.Attribute("StopNameForReturnType")?.Value;
+            if (string.IsNullOrWhiteSpace(stopReturnPattern))
+                StopTypeForReturn = null;
+            else
+            {
+                stopReturnPattern = stopReturnPattern.Trim();
+
+                if (stopReturnPattern != "" && stopReturnPattern[0] == '@')
+                    stopReturnPattern = Regex.Escape(stopReturnPattern.Substring(1).TrimStart());
+                else
+                    new Regex(stopReturnPattern);
+            }
+        }
+    }
 }

@@ -17,4 +17,7 @@ public struct TargetStruct : TargetInterface
 
     public override string ToString()
         => base.ToString();
+
+    public override bool Equals(object obj)
+        => base.Equals(obj);
 }
