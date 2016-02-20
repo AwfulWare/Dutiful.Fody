@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata minClientVersion="2.8">
+    <id>Dutiful.Fody</id>
+    <version>$version$</version>
+    <title>Dutiful.Fody</title>
+    <authors>Licshee</authors>
+    <owners>NanaLich</owners>
+    <developmentDependency>true</developmentDependency>
+    <licenseUrl>http://www.opensource.org/licenses/mit-license.php</licenseUrl>
+    <projectUrl>http://github.com/Licshee/Dutiful.Fody</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Make your methods Dutiful.</description>
+    <tags>ILWeaving, Fody, Cecil</tags>
+    <dependencies>
+      <dependency id="Fody"/>
+    </dependencies>
+  </metadata>
+</package>
