@@ -52,7 +52,6 @@ public class WeaverTests
     public void ValidateOutputMethods()
     {
         dynamic instance = Activator.CreateInstance(targetType);
-        var sw = instance.SpawnStopwatch();
 
         {
             string output;
@@ -72,7 +71,6 @@ public class WeaverTests
     public void ValidateMoreArguments()
     {
         dynamic instance = Activator.CreateInstance(targetType);
-        var sw = instance.SpawnStopwatch();
 
         const string format = "{2}:\t{0}{3}{1}@{4}";
         var expected = $"233:\t{{{new object()}}}@{IntPtr.Zero}";
