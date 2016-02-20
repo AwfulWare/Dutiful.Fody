@@ -4,6 +4,7 @@ using System.Reflection;
 using Mono.Cecil;
 using NUnit.Framework;
 using System.Diagnostics;
+using Microsoft.CSharp.RuntimeBinder;
 
 [TestFixture]
 public class WeaverTests
@@ -38,6 +39,16 @@ public class WeaverTests
         assembly = Assembly.LoadFile(newAssemblyPath);
         targetClass = assembly.GetType("TargetClass");
         targetStruct = assembly.GetType("TargetStruct");
+    }
+
+    [Test]
+    public void ValidateJustMe()
+    {
+        dynamic instance = Activator.CreateInstance(targetClass);
+
+        Assert.AreEqual(instance, instance.JustMe());
+
+        Assert.Throws<RuntimeBinderException>(() => instance.JustMeDutiful());
     }
 
     [Test]
