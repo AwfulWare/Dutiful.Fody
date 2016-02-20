@@ -5,8 +5,12 @@ namespace AssemblyToProcess
 {
     public class TargetClass
     {
+        public void NOOP() { }
+
+        public TargetClass JustMe() => this;
+
         [Obsolete]
-        public Stopwatch SpawnStopwatch()
+        public virtual Stopwatch SpawnStopwatch()
             => Stopwatch.StartNew();
 
         public bool TryMakeString(string format, decimal arg2, out string result)
