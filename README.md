@@ -47,13 +47,15 @@ https://nuget.org/packages/Dutiful.Fody/
 
 ### Change nameing pattern
 
+To change the default suffix for generated methods, you do this:
+
     <Dutiful NameFormat="Chaining"/>
 
-or
+If you want prefix, you do this:
 
     <Dutiful NameFormat="Do*ButDiscardResult"/>
 
-or
+or this:
 
     <Dutiful NameFormat="Do{0}ButDiscardResult"/>
 
