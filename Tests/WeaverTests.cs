@@ -65,7 +65,7 @@ public class WeaverTests
     }
 
     [Test]
-    public void ValidateStopWords()
+    public void ValidateStructStopWords()
     {
         dynamic instance = Activator.CreateInstance(targetStruct);
 
@@ -82,7 +82,7 @@ public class WeaverTests
     }
 
     [Test]
-    public void ValidateClassBasic()
+    public void ValidateClassStopWords()
     {
         dynamic instance = Activator.CreateInstance(targetClass);
         Assert.IsInstanceOf<Stopwatch>(instance.SpawnStopwatch());
