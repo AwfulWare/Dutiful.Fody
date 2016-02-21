@@ -69,10 +69,12 @@ public class WeaverTests
     {
         dynamic instance = Activator.CreateInstance(targetStruct);
 
+        instance.NOOP();
+        Assert.AreEqual(instance, instance.NOOPCareless());
+
         instance.No_Thanks();
         instance.NoDutiful();
         instance.NoopNoDutiful();
-        Assert.AreEqual(instance, instance.NOOPCareless());
 
         Assert.Throws<RuntimeBinderException>(() => instance.EqualsCareless(null));
         Assert.Throws<RuntimeBinderException>(() => instance.ToStringCareless());
@@ -85,7 +87,9 @@ public class WeaverTests
     public void ValidateClassStopWords()
     {
         dynamic instance = Activator.CreateInstance(targetClass);
+
         Assert.IsInstanceOf<Stopwatch>(instance.SpawnStopwatch());
+        Assert.AreEqual(instance, instance.SpawnStopwatchCareless());
 
         Assert.IsInstanceOf<IntPtr>(instance.GetIntPtr());
         Assert.IsInstanceOf<UIntPtr>(instance.GetUIntPtr());
@@ -94,8 +98,6 @@ public class WeaverTests
         Assert.Throws<RuntimeBinderException>(() => instance.GetIntPtrCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.GetUIntPtrCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.GetStringBuilderCareless());
-
-        Assert.AreEqual(instance, instance.SpawnStopwatchCareless());
     }
 
     [Test]
