@@ -35,13 +35,27 @@ https://nuget.org/packages/Dutiful.Fody/
       }
     }
 
-# How it selects methods
+## How it selects methods
 
 * Only public, protected and protected internal methods will get Dutiful wrappers.
 * Instance methods will get processed, static methods and constructors will not.
 * Interfaces, enums are ignored.
 * Methods original declared on System.Object are ignored by default.
 * Accessors of properties and events are ignored.
+
+## Configuration
+
+### Change nameing pattern
+
+    <Dutiful NameFormat="MySuffix"/>
+
+or
+
+    <Dutiful NameFormat="Do{0}ButDiscardResult"/>
+
+### Stop Words
+
+`<TBD>`
 
 ## Icon
 
