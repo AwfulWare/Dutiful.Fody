@@ -254,9 +254,9 @@ public class ModuleWeaver
     private void SetupFromConfig()
     {
         const string nameAttr = "NameFormat";
-        methodNameFormat = (Config?.Attribute(nameAttr)?.Value) ?? "Dutiful{0}";
+        methodNameFormat = (Config?.Attribute(nameAttr)?.Value) ?? "Dutiful";
         if (!methodNameFormat.Contains("{0}"))
-            throw new FormatException(nameAttr);
+            methodNameFormat = "{0}" + methodNameFormat;
 
         SetupStopWordForDeclaringType();
         StopWordForMethodName = MakeStopWordPatternFromConfig(nameof(StopWordForMethodName));
