@@ -51,6 +51,10 @@ https://nuget.org/packages/Dutiful.Fody/
 
 or
 
+    <Dutiful NameFormat="Do*ButDiscardResult"/>
+
+or
+
     <Dutiful NameFormat="Do{0}ButDiscardResult"/>
 
 ### Stop Words
