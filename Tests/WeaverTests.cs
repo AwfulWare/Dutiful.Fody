@@ -76,11 +76,12 @@ public class WeaverTests
         instance.NoDutiful();
         instance.NoopNoDutiful();
 
-        Assert.Throws<RuntimeBinderException>(() => instance.EqualsCareless(null));
-        Assert.Throws<RuntimeBinderException>(() => instance.ToStringCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.No_ThanksCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.NoDutifulCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.NoopNoDutifulCareless());
+
+        Assert.Throws<RuntimeBinderException>(() => instance.EqualsCareless(null));
+        Assert.Throws<RuntimeBinderException>(() => instance.ToStringCareless());
     }
 
     [Test]
