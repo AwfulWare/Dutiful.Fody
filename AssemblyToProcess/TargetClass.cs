@@ -4,6 +4,8 @@ using System.Text;
 
 public class TargetClass
 {
+    public event EventHandler ExampleEvent;
+
      public TargetClass JustMe() => this;
 
     [Obsolete]

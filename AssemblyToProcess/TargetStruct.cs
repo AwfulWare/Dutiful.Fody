@@ -3,6 +3,8 @@ using System.Diagnostics;
 
 public struct TargetStruct : TargetInterface
 {
+    public object ExampleProperty => new object();
+
     public void NOOP() { }
 
     public void No_Thanks() { }

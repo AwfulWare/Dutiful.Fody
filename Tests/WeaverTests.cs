@@ -38,7 +38,7 @@ public class WeaverTests
         config.SetAttributeValue("StopWordForMethodName", ".+NoDutiful");
         config.Add(new XElement("StopWordForMethodName") { Value = @"
             @NoDutiful
-            .+_+.+
+            No_+.+
         " });
         var moduleDefinition = ModuleDefinition.ReadModule(newAssemblyPath);
         var weavingTask = new ModuleWeaver
