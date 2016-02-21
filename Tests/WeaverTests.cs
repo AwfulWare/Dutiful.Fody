@@ -27,11 +27,22 @@ public class WeaverTests
 
         newAssemblyPath = assemblyPath.Replace(".dll", "2.dll");
         File.Copy(assemblyPath, newAssemblyPath, true);
-
+        
+        var config = XElement.Parse(@"<Dutiful NameFormat=""{0}Careless""/>");
+        config.SetAttributeValue("StopWordForReturnType", @".+\.UIntPtr");
+        config.Add(new XElement("StopWordForReturnType") { Value = @"
+            @System.IntPtr
+            .+\.StringBuilder
+        " });
+        config.SetAttributeValue("StopWordForMethodName", ".+NoDutiful");
+        config.Add(new XElement("StopWordForMethodName") { Value = @"
+            @NoDutiful
+            .+_+.+
+        " });
         var moduleDefinition = ModuleDefinition.ReadModule(newAssemblyPath);
         var weavingTask = new ModuleWeaver
         {
-            Config = XElement.Parse(@"<Dutiful NameFormat=""{0}Careless""/>"),
+            Config = config,
             ModuleDefinition = moduleDefinition,
         };
 
@@ -57,22 +68,34 @@ public class WeaverTests
     public void ValidateStopWords()
     {
         dynamic instance = Activator.CreateInstance(targetStruct);
+
+        instance.No_Thanks();
+        instance.NoDutiful();
+        instance.NoopNoDutiful();
+        Assert.AreEqual(instance, instance.NOOPCareless());
+
         Assert.Throws<RuntimeBinderException>(() => instance.EqualsCareless(null));
         Assert.Throws<RuntimeBinderException>(() => instance.ToStringCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.No_ThanksCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.NoDutifulCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.NoopNoDutifulCareless());
     }
 
     [Test]
-    public void ValidateSimpleMethods()
+    public void ValidateClassBasic()
     {
         dynamic instance = Activator.CreateInstance(targetClass);
-        var sw = instance.SpawnStopwatch();
+        Assert.IsInstanceOf<Stopwatch>(instance.SpawnStopwatch());
 
-        Assert.IsInstanceOf<Stopwatch>(sw);
+        Assert.IsInstanceOf<IntPtr>(instance.GetIntPtr());
+        Assert.IsInstanceOf<UIntPtr>(instance.GetUIntPtr());
+        Assert.Null(instance.GetStringBuilder());
+
+        Assert.Throws<RuntimeBinderException>(() => instance.GetIntPtrCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.GetUIntPtrCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.GetStringBuilderCareless());
+
         Assert.AreEqual(instance, instance.SpawnStopwatchCareless());
-
-        Assert.AreEqual(instance, instance.NOOPCareless());
-
-        Assert.IsInstanceOf(targetStruct, ((dynamic)Activator.CreateInstance(targetStruct)).NOOPCareless());
     }
 
     [Test]

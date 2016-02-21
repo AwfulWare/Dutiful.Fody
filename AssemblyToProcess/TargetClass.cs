@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Text;
 
 public class TargetClass
 {
-    public void NOOP() { }
-
-    public TargetClass JustMe() => this;
+     public TargetClass JustMe() => this;
 
     [Obsolete]
     public virtual Stopwatch SpawnStopwatch()
         => Stopwatch.StartNew();
+
+    public IntPtr GetIntPtr() => IntPtr.Zero;
+    public UIntPtr GetUIntPtr() => UIntPtr.Zero;
+    public StringBuilder GetStringBuilder() => null;
 
     public bool TryMakeString(string format, decimal arg2, IntPtr arg3, out string result)
     {

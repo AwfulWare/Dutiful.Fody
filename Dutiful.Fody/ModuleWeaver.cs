@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -7,6 +8,8 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
 using static Mono.Cecil.MethodAttributes;
+using System.IO;
+using System.Text;
 
 public class ModuleWeaver
 {
@@ -17,9 +20,9 @@ public class ModuleWeaver
     public XElement Config { get; set; }
     public ModuleDefinition ModuleDefinition { get; set; }
     private string methodNameFormat;
-    private Regex StopTypeForDeclaring;
-    private Regex StopNameForMethod;
-    private Regex StopTypeForReturn;
+    private Regex StopWordForDeclaringType;
+    private Regex StopWordForMethodName;
+    private Regex StopWordForReturnType;
 
     TypeSystem typeSystem;
 
@@ -78,18 +81,18 @@ public class ModuleWeaver
             if (returnType == type)
                 continue;
 
-            if (StopTypeForDeclaring.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
+            if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
                 continue;
 
-            if (StopNameForMethod != null)
+            if (StopWordForMethodName != null)
             {
-                if (StopNameForMethod.IsMatch(method.Name))
+                if (StopWordForMethodName.IsMatch(method.Name))
                     continue;
             }
 
-            if (StopTypeForReturn != null)
+            if (StopWordForReturnType != null)
             {
-                if (StopTypeForReturn.IsMatch(returnType.FullName))
+                if (StopWordForReturnType.IsMatch(returnType.FullName))
                     continue;
             }
 
@@ -107,50 +110,150 @@ public class ModuleWeaver
             AddDutifulMethods(type);
     }
 
+    private void SetupStopWordForDeclaringType()
+    {
+        string tmp;
+        IEnumerable<string> lines = null;
+
+        tmp = Config?.Element("StopWordForDeclaringType")?.Value;
+        if (!tmp.IsNullOrWhiteSpace())
+        {
+            using (var sr = new StringReader(tmp))
+                lines = sr.NonWhiteSpaceLines().ToArray();
+        }
+
+        tmp = Config?.Attribute("StopWordForDeclaringType")?.Value;
+        if (tmp == null)
+            tmp = typeSystem.Object.FullName;
+
+        if (lines == null)
+            lines = new[] { tmp };
+        else
+            lines = new[] { tmp }.Concat(lines);
+
+        if (lines == null) return;
+
+        lines = lines.Select(s =>
+        {
+            if (s[0] == '@')
+                return Regex.Escape(s.Substring(1).Trim());
+            new Regex(s);
+            return s;
+        }).Where(s => s != "").Distinct();
+
+        var sb = new StringBuilder();
+        sb.Append("^(?:");
+        foreach (var line in lines)
+        {
+            sb.Append(line);
+            sb.Append('|');
+        }
+        sb.Length--;
+        sb.Append(")$");
+
+        StopWordForDeclaringType = new Regex(sb.ToString());
+    }
+    private void SetupStopWordForMethodName()
+    {
+        if (Config == null) return;
+
+        string tmp;
+        IEnumerable<string> lines = null;
+
+        tmp = Config.Element("StopWordForMethodName")?.Value;
+        if (!tmp.IsNullOrWhiteSpace())
+        {
+            using (var sr = new StringReader(tmp))
+                lines = sr.NonWhiteSpaceLines()
+                    .Select(s => s.Trim()).Where(s => s != "").ToArray();
+        }
+
+        tmp = Config.Attribute("StopWordForMethodName")?.Value;
+        if (!tmp.IsNullOrWhiteSpace())
+        {
+            if (lines == null)
+                lines = new[] { tmp };
+            else
+                lines = new[] { tmp }.Concat(lines);
+        }
+
+        if (lines == null) return;
+
+        lines = lines.Select(s =>
+        {
+            if (s[0] == '@')
+                return Regex.Escape(s.Substring(1).TrimStart());
+            new Regex(s);
+            return s;
+        }).Where(s => s != "").Distinct();
+
+        var sb = new StringBuilder();
+        sb.Append("^(?:");
+        foreach (var line in lines)
+        {
+            sb.Append(line);
+            sb.Append('|');
+        }
+        sb.Length--;
+        sb.Append(")$");
+
+        StopWordForMethodName = new Regex(sb.ToString());
+    }
+    private void SetupStopWordForReturnType()
+    {
+        if (Config == null) return;
+
+        string tmp;
+        IEnumerable<string> lines = null;
+
+        tmp = Config.Element("StopWordForReturnType")?.Value;
+        if (!tmp.IsNullOrWhiteSpace())
+        {
+            using (var sr = new StringReader(tmp))
+                lines = sr.NonWhiteSpaceLines()
+                    .Select(s => s.Trim()).Where(s => s != "").ToArray();
+        }
+
+        tmp = Config.Attribute("StopWordForReturnType")?.Value;
+        if (!tmp.IsNullOrWhiteSpace())
+        {
+            if (lines == null)
+                lines = new[] { tmp };
+            else
+                lines = new[] { tmp }.Concat(lines);
+        }
+
+        if (lines == null) return;
+
+        lines = lines.Select(s =>
+        {
+            if (s[0] == '@')
+                return Regex.Escape(s.Substring(1).TrimStart());
+            new Regex(s);
+            return s;
+        }).Where(s => s != "").Distinct();
+
+        var sb = new StringBuilder();
+        sb.Append("^(?:");
+        foreach (var line in lines)
+        {
+            sb.Append(line);
+            sb.Append('|');
+        }
+        sb.Length--;
+        sb.Append(")$");
+
+        StopWordForReturnType = new Regex(sb.ToString());
+    }
     private void SetupFromConfig()
     {
-        methodNameFormat = (Config?.Attribute("NameFormat")?.Value) ?? "Dutiful{0}";
+        const string nameAttr = "NameFormat";
+        methodNameFormat = (Config?.Attribute(nameAttr)?.Value) ?? "Dutiful{0}";
+        if (!methodNameFormat.Contains("{0}"))
+            throw new ArgumentException(nameAttr);
 
-        {
-            var stopDeclaringPattern = Config?.Attribute("StopNameForDeclaringType")?.Value;
-            if (stopDeclaringPattern == null)
-                stopDeclaringPattern = '@' + typeSystem.Object.FullName;
-            else
-                stopDeclaringPattern = stopDeclaringPattern.Trim();
-
-            if (stopDeclaringPattern != "" && stopDeclaringPattern[0] == '@')
-                stopDeclaringPattern = Regex.Escape(stopDeclaringPattern.Substring(1).TrimStart());
-            else
-                new Regex(stopDeclaringPattern);
-
-            StopTypeForDeclaring = new Regex("^(?:" + stopDeclaringPattern + ")$");
-        }
-
-        {
-            var stopMethodPattern = Config?.Attribute("StopNameForMethod")?.Value;
-            if (string.IsNullOrWhiteSpace(stopMethodPattern))
-                StopNameForMethod = null;
-            else
-            {
-                stopMethodPattern = stopMethodPattern.Trim();
-                new Regex(stopMethodPattern);
-                StopNameForMethod = new Regex("^(?:" + stopMethodPattern + ")$");
-            }
-        }
-
-        {
-            var stopReturnPattern = Config?.Attribute("StopNameForReturnType")?.Value;
-            if (string.IsNullOrWhiteSpace(stopReturnPattern))
-                StopTypeForReturn = null;
-            else
-            {
-                stopReturnPattern = stopReturnPattern.Trim();
-
-                if (stopReturnPattern != "" && stopReturnPattern[0] == '@')
-                    stopReturnPattern = Regex.Escape(stopReturnPattern.Substring(1).TrimStart());
-                else
-                    new Regex(stopReturnPattern);
-            }
-        }
+        SetupStopWordForDeclaringType();
+        SetupStopWordForMethodName();
+        SetupStopWordForReturnType();
     }
 }

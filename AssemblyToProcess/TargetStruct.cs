@@ -5,6 +5,10 @@ public struct TargetStruct : TargetInterface
 {
     public void NOOP() { }
 
+    public void No_Thanks() { }
+    public void NoDutiful() { }
+    public void NoopNoDutiful() { }
+
     public bool TryMakeString(string format, decimal arg2, IntPtr arg3, out string result)
     {
         result = string.Format(format, "{", "}", arg2, this, arg3);
