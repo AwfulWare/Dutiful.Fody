@@ -41,6 +41,7 @@ https://nuget.org/packages/Dutiful.Fody/
 * Instance methods will get processed, static methods and constructors will not.
 * Interfaces, enums are ignored.
 * Methods original declared on System.Object are ignored by default.
+* Methods returning same type as what they belong to are ignored.
 * Accessors of properties and events are ignored.
 
 ## Configuration
