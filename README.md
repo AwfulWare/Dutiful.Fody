@@ -47,7 +47,7 @@ https://nuget.org/packages/Dutiful.Fody/
 
 ### Change nameing pattern
 
-    <Dutiful NameFormat="MySuffix"/>
+    <Dutiful NameFormat="Chaining"/>
 
 or
 
