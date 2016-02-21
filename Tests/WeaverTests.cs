@@ -34,6 +34,7 @@ public class WeaverTests
             @System.IntPtr
             .+\.StringBuilder
         " });
+        config.SetAttributeValue("StopWordForSignature", "@System.Object TargetStruct::DontWrapThis(System.Object)");
         config.SetAttributeValue("StopWordForMethodName", ".+NoDutiful");
         config.Add(new XElement("StopWordForMethodName") { Value = @"
             @NoDutiful
@@ -72,10 +73,13 @@ public class WeaverTests
         instance.NOOP();
         Assert.AreEqual(instance, instance.NOOPCareless());
 
+        var obj = new object();
+        Assert.AreEqual(obj, instance.DontWrapThis(obj));
         instance.No_Thanks();
         instance.NoDutiful();
         instance.NoopNoDutiful();
 
+        Assert.Throws<RuntimeBinderException>(() => instance.DontWrapThisCareless(obj));
         Assert.Throws<RuntimeBinderException>(() => instance.No_ThanksCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.NoDutifulCareless());
         Assert.Throws<RuntimeBinderException>(() => instance.NoopNoDutifulCareless());

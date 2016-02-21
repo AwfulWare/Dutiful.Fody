@@ -23,6 +23,7 @@ public class ModuleWeaver
     private Regex StopWordForDeclaringType;
     private Regex StopWordForMethodName;
     private Regex StopWordForReturnType;
+    private Regex StopWordForSignature;
 
     TypeSystem typeSystem;
 
@@ -84,15 +85,21 @@ public class ModuleWeaver
             if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
                 continue;
 
+            if (StopWordForReturnType != null)
+            {
+                if (StopWordForReturnType.IsMatch(returnType.FullName))
+                    continue;
+            }
+
             if (StopWordForMethodName != null)
             {
                 if (StopWordForMethodName.IsMatch(method.Name))
                     continue;
             }
 
-            if (StopWordForReturnType != null)
+            if (StopWordForSignature != null)
             {
-                if (StopWordForReturnType.IsMatch(returnType.FullName))
+                if (StopWordForSignature.IsMatch(method.FullName))
                     continue;
             }
 
@@ -153,14 +160,14 @@ public class ModuleWeaver
 
         StopWordForDeclaringType = new Regex(sb.ToString());
     }
-    private void SetupStopWordForMethodName()
+    private Regex MakeStopWordPatternFromConfig(string key)
     {
-        if (Config == null) return;
+        if (Config == null) return null;
 
         string tmp;
         IEnumerable<string> lines = null;
 
-        tmp = Config.Element("StopWordForMethodName")?.Value;
+        tmp = Config.Element(key)?.Value;
         if (!tmp.IsNullOrWhiteSpace())
         {
             using (var sr = new StringReader(tmp))
@@ -168,7 +175,7 @@ public class ModuleWeaver
                     .Select(s => s.Trim()).Where(s => s != "").ToArray();
         }
 
-        tmp = Config.Attribute("StopWordForMethodName")?.Value;
+        tmp = Config.Attribute(key)?.Value;
         if (!tmp.IsNullOrWhiteSpace())
         {
             if (lines == null)
@@ -177,7 +184,7 @@ public class ModuleWeaver
                 lines = new[] { tmp }.Concat(lines);
         }
 
-        if (lines == null) return;
+        if (lines == null) return null;
 
         lines = lines.Select(s =>
         {
@@ -197,16 +204,16 @@ public class ModuleWeaver
         sb.Length--;
         sb.Append(")$");
 
-        StopWordForMethodName = new Regex(sb.ToString());
+        return new Regex(sb.ToString());
     }
-    private void SetupStopWordForReturnType()
+    private void SetupStopWordForSignature()
     {
         if (Config == null) return;
 
         string tmp;
         IEnumerable<string> lines = null;
 
-        tmp = Config.Element("StopWordForReturnType")?.Value;
+        tmp = Config.Element(nameof(StopWordForSignature))?.Value;
         if (!tmp.IsNullOrWhiteSpace())
         {
             using (var sr = new StringReader(tmp))
@@ -214,7 +221,7 @@ public class ModuleWeaver
                     .Select(s => s.Trim()).Where(s => s != "").ToArray();
         }
 
-        tmp = Config.Attribute("StopWordForReturnType")?.Value;
+        tmp = Config.Attribute(nameof(StopWordForSignature))?.Value;
         if (!tmp.IsNullOrWhiteSpace())
         {
             if (lines == null)
@@ -229,8 +236,7 @@ public class ModuleWeaver
         {
             if (s[0] == '@')
                 return Regex.Escape(s.Substring(1).TrimStart());
-            new Regex(s);
-            return s;
+            throw new FormatException(nameof(StopWordForSignature));
         }).Where(s => s != "").Distinct();
 
         var sb = new StringBuilder();
@@ -243,17 +249,18 @@ public class ModuleWeaver
         sb.Length--;
         sb.Append(")$");
 
-        StopWordForReturnType = new Regex(sb.ToString());
+        StopWordForSignature = new Regex(sb.ToString());
     }
     private void SetupFromConfig()
     {
         const string nameAttr = "NameFormat";
         methodNameFormat = (Config?.Attribute(nameAttr)?.Value) ?? "Dutiful{0}";
         if (!methodNameFormat.Contains("{0}"))
-            throw new ArgumentException(nameAttr);
+            throw new FormatException(nameAttr);
 
         SetupStopWordForDeclaringType();
-        SetupStopWordForMethodName();
-        SetupStopWordForReturnType();
+        StopWordForMethodName = MakeStopWordPatternFromConfig(nameof(StopWordForMethodName));
+        StopWordForReturnType = MakeStopWordPatternFromConfig(nameof(StopWordForReturnType));
+        SetupStopWordForSignature();
     }
 }
