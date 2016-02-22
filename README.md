@@ -39,7 +39,7 @@ https://nuget.org/packages/Dutiful.Fody/
 
 * Only public, protected and protected internal methods will get Dutiful wrappers.
 * Instance methods will get processed, static methods and constructors will not.
-* Interfaces, enums are ignored.
+* Interfaces, enums are ignored, structs are ignored by default.
 * Methods original declared on System.Object are ignored by default.
 * Methods returning same type as what they belong to are ignored.
 * Accessors of properties and events are ignored.
@@ -51,6 +51,10 @@ https://nuget.org/packages/Dutiful.Fody/
 To change the default suffix for generated methods, you do this:
 
     <Dutiful NameFormat="Chaining"/>
+
+If you want methods of structs also get their Dutiful form, do this:
+
+    <Dutiful TargetLevel="Struct"/>
 
 If you want prefix, you do this:
 
