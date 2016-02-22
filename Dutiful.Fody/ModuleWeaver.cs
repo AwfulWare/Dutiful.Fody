@@ -34,6 +34,35 @@ public class ModuleWeaver
         LogInfo = m => { };
     }
 
+    private static void CloneGenericParametersTo(IGenericParameterProvider from, IGenericParameterProvider to)
+    {
+        var coll = to.GenericParameters;
+        foreach (var param in from.GenericParameters)
+        {
+            var clone = new GenericParameter(to);
+
+            foreach (var attr in param.CustomAttributes)
+                clone.CustomAttributes.Add(attr);
+
+            foreach (var constraint in param.Constraints)
+                clone.Constraints.Add(constraint);
+
+            CloneGenericParametersTo(param, clone);
+
+            clone.HasDefaultConstructorConstraint = param.HasDefaultConstructorConstraint;
+            clone.HasNotNullableValueTypeConstraint = param.HasNotNullableValueTypeConstraint;
+            clone.HasReferenceTypeConstraint = param.HasReferenceTypeConstraint;
+
+            clone.IsContravariant = param.IsContravariant;
+            clone.IsCovariant = param.IsCovariant;
+            clone.IsNonVariant = param.IsNonVariant;
+            clone.IsValueType = param.IsValueType;
+
+            clone.Name = param.Name;
+
+            coll.Add(clone);
+        }
+    }
     private static void LoadArguments(ILProcessor processor, ushort count)
     {
         processor.Emit(OpCodes.Ldarg_0);
@@ -56,6 +85,8 @@ public class ModuleWeaver
         foreach (var attr in method.CustomAttributes)
             customAttributes.Add(attr);
 
+        CloneGenericParametersTo(method, dutiful);
+
         var parameters = dutiful.Parameters;
         foreach (var param in method.Parameters)
             parameters.Add(param);
@@ -63,7 +94,13 @@ public class ModuleWeaver
         var processor = dutiful.Body.GetILProcessor();
         LoadArguments(processor, (ushort)parameters.Count);
 
-        processor.Emit(OpCodes.Callvirt, method);
+        var generic = new GenericInstanceMethod(method);
+        foreach (var item in dutiful.GenericParameters)
+            generic.GenericArguments.Add(item);
+
+        method.Resolve().GetBaseMethod();
+
+        processor.Emit(OpCodes.Callvirt, generic);
         if (method.ReturnType != typeSystem.Void)
             processor.Emit(OpCodes.Pop);
 

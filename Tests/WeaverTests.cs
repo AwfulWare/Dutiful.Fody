@@ -56,6 +56,20 @@ public class WeaverTests
     }
 
     [Test]
+    public void TestGeneric()
+    {
+        dynamic instance = Activator.CreateInstance(targetClass);
+
+        Type type;
+
+        instance.TypeOf<object>(out type);
+        Assert.AreEqual(typeof(object), type);
+
+        instance.TypeOfCareless<object>(out type);
+        Assert.AreEqual(typeof(object), type);
+    }
+
+    [Test]
     public void ValidateJustMe()
     {
         dynamic instance = Activator.CreateInstance(targetClass);
@@ -95,7 +109,6 @@ public class WeaverTests
     {
         dynamic instance = Activator.CreateInstance(targetClass);
 
-        Assert.IsInstanceOf<Stopwatch>(instance.SpawnStopwatch());
         Assert.AreEqual(instance, instance.SpawnStopwatchCareless());
 
         Assert.IsInstanceOf<IntPtr>(instance.GetIntPtr());

@@ -15,6 +15,11 @@ public class TargetClass
     public virtual Stopwatch SpawnStopwatch()
         => Stopwatch.StartNew();
 
+    public virtual void TypeOf<T>(out Type type)
+    {
+        type = typeof(T);
+    }
+
     public IntPtr GetIntPtr() => IntPtr.Zero;
     public UIntPtr GetUIntPtr() => UIntPtr.Zero;
     public StringBuilder GetStringBuilder() => null;
