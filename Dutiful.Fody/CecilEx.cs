@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using Mono.Cecil;
+using System.Collections;
+using System.Collections.Generic;
 
 static class CecilEx
 {
@@ -94,5 +96,19 @@ static class CecilEx
             return true;
 
         return type.IsSubclassOf(test);
+    }
+
+    public static bool AreMatch(this IList<ParameterDefinition> self, IList<ParameterDefinition> match)
+    {
+        if (self.Count != match.Count)
+            return false;
+
+        for(var i = 0; i < self.Count; i++)
+        {
+            if (!AreSame( self[i].ParameterType.Resolve(), match[i].ParameterType.Resolve()))
+                return false;
+        }
+
+        return true;
     }
 }

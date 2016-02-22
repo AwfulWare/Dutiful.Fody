@@ -6,6 +6,14 @@ public struct TargetStruct : TargetInterface
     public object ExampleProperty => new object();
 
     public void NOOP() { }
+    public Guid NOOPCareless()
+        => Guid.NewGuid();
+
+    public void No() { }
+    public void NoCareless(TargetStruct input)
+    {
+        Debug.WriteLine(nameof(NoCareless));
+    }
 
     public void No_Thanks() { }
     public void NoDutiful() { }

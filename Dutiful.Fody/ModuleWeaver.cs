@@ -41,6 +41,9 @@ public class ModuleWeaver
         {
             var clone = new GenericParameter(to);
 
+            clone.Name = param.Name;
+            clone.Attributes = param.Attributes;
+
             foreach (var attr in param.CustomAttributes)
                 clone.CustomAttributes.Add(attr);
 
@@ -48,17 +51,6 @@ public class ModuleWeaver
                 clone.Constraints.Add(constraint);
 
             CloneGenericParametersTo(param, clone);
-
-            clone.HasDefaultConstructorConstraint = param.HasDefaultConstructorConstraint;
-            clone.HasNotNullableValueTypeConstraint = param.HasNotNullableValueTypeConstraint;
-            clone.HasReferenceTypeConstraint = param.HasReferenceTypeConstraint;
-
-            clone.IsContravariant = param.IsContravariant;
-            clone.IsCovariant = param.IsCovariant;
-            clone.IsNonVariant = param.IsNonVariant;
-            clone.IsValueType = param.IsValueType;
-
-            clone.Name = param.Name;
 
             coll.Add(clone);
         }
@@ -73,6 +65,8 @@ public class ModuleWeaver
 
         processor.Emit(OpCodes.Ldarg, count);
     }
+    private string MakeDutifulName(string name)
+        => string.Format(methodNameFormat, name);
     private MethodDefinition MakeDutifulVariant(MethodDefinition method)
     {
         var name = string.Format(methodNameFormat, method.Name);
@@ -112,10 +106,23 @@ public class ModuleWeaver
     private void AddDutifulMethods(TypeDefinition type)
     {
         LogInfo($"Processing type \"{type.FullName}\"...");
+        var groups = type.Methods.Where(m => (m.IsPublic || m.IsFamily)
+            && !(m.IsStatic || m.IsConstructor) && m.SemanticsAttributes == MethodSemanticsAttributes.None)
+            .ToLookup(m => m.Name);
 
-        foreach (var method in type.Methods.Where(m => (m.IsPublic || m.IsFamily)
-            && !(m.IsStatic || m.IsConstructor) && m.SemanticsAttributes == MethodSemanticsAttributes.None).ToArray())
+        foreach (var method in groups.SelectMany(g => g))
         {
+            var dutifulName = MakeDutifulName(method.Name);
+            if (groups.Contains(dutifulName))
+            {
+                if (groups[dutifulName].Any(m =>
+                {
+                    if (m.GenericParameters.Count != method.GenericParameters.Count)
+                        return false;
+                    return m.Parameters.AreMatch(method.Parameters);
+                })) continue;
+            }
+
             var returnType = method.ReturnType;
             if (type.IsAssignableFrom(returnType.Resolve()))
                 continue;

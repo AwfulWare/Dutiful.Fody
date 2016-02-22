@@ -87,7 +87,11 @@ public class WeaverTests
         dynamic instance = Activator.CreateInstance(targetStruct);
 
         instance.NOOP();
-        Assert.AreEqual(instance, instance.NOOPCareless());
+        Assert.IsInstanceOf<Guid>(instance.NOOPCareless());
+
+        instance.No();
+        instance.NoCareless(instance);
+        Assert.AreEqual(instance, instance.NoCareless());
 
         var obj = new object();
         Assert.AreEqual(obj, instance.DontWrapThis(obj));
