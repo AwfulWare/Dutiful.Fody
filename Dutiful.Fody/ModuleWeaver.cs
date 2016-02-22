@@ -116,12 +116,8 @@ public class ModuleWeaver
 
         foreach (var type in ModuleDefinition.Types.Where(t =>
         {
-            if (t.IsNotPublic)
-            {
-                if (!t.IsNested) return false;
-                if (t.IsNestedAssembly || t.IsNestedFamilyAndAssembly || t.IsNestedPrivate)
-                    return false;
-            }
+            if (!t.IsEventuallyAccessible())
+                return false;
 
             if (t.IsClass)
             {
