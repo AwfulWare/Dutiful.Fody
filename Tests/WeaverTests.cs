@@ -28,7 +28,7 @@ public class WeaverTests
         newAssemblyPath = assemblyPath.Replace(".dll", "2.dll");
         File.Copy(assemblyPath, newAssemblyPath, true);
         
-        var config = XElement.Parse(@"<Dutiful NameFormat=""Careless""/>");
+        var config = XElement.Parse(@"<Dutiful NameFormat=""Careless"" TargetTypeLevel=""Struct""/>");
         config.SetAttributeValue("StopWordForReturnType", @".+\.UIntPtr");
         config.Add(new XElement("StopWordForReturnType") { Value = @"
             @System.IntPtr

@@ -20,6 +20,7 @@ public class ModuleWeaver
     public XElement Config { get; set; }
     public ModuleDefinition ModuleDefinition { get; set; }
     private string methodNameFormat;
+    private TargetTypeLevel TargetLevel;
     private Regex StopWordForDeclaringType;
     private Regex StopWordForMethodName;
     private Regex StopWordForReturnType;
@@ -113,8 +114,19 @@ public class ModuleWeaver
 
         SetupFromConfig();
 
-        foreach (var type in ModuleDefinition.Types.Where(t => t.IsPublic && !(t.IsEnum || t.IsInterface)))
-            AddDutifulMethods(type);
+        foreach (var type in ModuleDefinition.Types.Where(t =>
+        {
+            if (t.IsNotPublic) return false;
+
+            if (t.IsClass)
+            {
+                if (t.IsValueType && TargetLevel < TargetTypeLevel.Struct)
+                    return false;
+                return true;
+            }
+
+            return false;
+        })) AddDutifulMethods(type);
     }
 
     private void SetupStopWordForDeclaringType()
@@ -261,6 +273,8 @@ public class ModuleWeaver
             methodNameFormat = placeholder + methodNameFormat;
         else if (methodNameFormat.IndexOf(placeholder, index + placeholder.Length, StringComparison.Ordinal) > index)
             throw new FormatException(nameAttr);
+
+        Enum.TryParse(Config?.Attribute(nameof(TargetTypeLevel))?.Value, out TargetLevel);
 
         SetupStopWordForDeclaringType();
         StopWordForMethodName = MakeStopWordPatternFromConfig(nameof(StopWordForMethodName));

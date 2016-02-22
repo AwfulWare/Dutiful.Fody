@@ -64,6 +64,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="ModuleWeaver.cs" />
     <Compile Include="StringEx.cs" />
+    <Compile Include="TargetTypeLevel.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
