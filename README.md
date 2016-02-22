@@ -40,6 +40,7 @@ https://nuget.org/packages/Dutiful.Fody/
 * Only public, protected and protected internal methods will get Dutiful wrappers.
 * Instance methods will get processed, static methods and constructors will not.
 * Interfaces, enums are ignored, structs are ignored by default.
+* If generating wrapper for a method can cause ambiguity, then it skips.
 * Methods original declared on System.Object are ignored by default.
 * Methods returning same type as what they belong to are ignored.
 * Accessors of properties and events are ignored.
