@@ -49,13 +49,13 @@ https://nuget.org/packages/Dutiful.Fody/
 
 ### Change nameing pattern
 
-To change the default suffix for generated methods, you do this:
-
-    <Dutiful NameFormat="Chaining"/>
-
 If you want methods of structs also get their Dutiful form, do this:
 
     <Dutiful TargetLevel="Struct"/>
+
+To change the default suffix for generated methods, you do this:
+
+    <Dutiful NameFormat="Chaining"/>
 
 If you want prefix, you do this:
 
