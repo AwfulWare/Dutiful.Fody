@@ -4,9 +4,12 @@ using System.Text;
 
 public class TargetClass
 {
+    public class Derived : TargetClass { }
+
     public event EventHandler ExampleEvent;
 
-     public TargetClass JustMe() => this;
+    public TargetClass JustMe() => this;
+    public Derived GetDerived() => new Derived();
 
     [Obsolete]
     public virtual Stopwatch SpawnStopwatch()

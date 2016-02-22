@@ -62,6 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="CecilEx.cs" />
     <Compile Include="ModuleWeaver.cs" />
     <Compile Include="StringEx.cs" />
     <Compile Include="TargetTypeLevel.cs" />

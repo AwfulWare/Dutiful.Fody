@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Mono.Cecil;
@@ -8,8 +10,6 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
 using static Mono.Cecil.MethodAttributes;
-using System.IO;
-using System.Text;
 
 public class ModuleWeaver
 {
@@ -80,7 +80,7 @@ public class ModuleWeaver
             && !(m.IsStatic || m.IsConstructor) && m.SemanticsAttributes == MethodSemanticsAttributes.None).ToArray())
         {
             var returnType = method.ReturnType;
-            if (returnType == type)
+            if (type.IsAssignableFrom(returnType.Resolve()))
                 continue;
 
             if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))

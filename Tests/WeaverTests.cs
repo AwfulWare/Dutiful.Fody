@@ -61,8 +61,10 @@ public class WeaverTests
         dynamic instance = Activator.CreateInstance(targetClass);
 
         Assert.AreEqual(instance, instance.JustMe());
+        Assert.IsInstanceOf(targetClass, instance.GetDerived());
 
         Assert.Throws<RuntimeBinderException>(() => instance.JustMeCareless());
+        Assert.Throws<RuntimeBinderException>(() => instance.GetDerivedCareless());
     }
 
     [Test]
