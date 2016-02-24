@@ -15,8 +15,6 @@
     <tags>ILWeaving, Fody, Cecil</tags>
     <dependencies>
       <dependency id="Fody"/>
-      <dependency id="Microsoft.Bcl.Async"/>
-      <dependency id="Nito.AsyncEx"/>
     </dependencies>
   </metadata>
 </package>
