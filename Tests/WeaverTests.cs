@@ -114,6 +114,9 @@ public class WeaverTests
 
         instance.GetTaskSync();
         instance.GetTaskSync<object>();
+
+        Assert.AreSame(instance, instance.GetTaskSyncCareless());
+        Assert.AreSame(instance, instance.GetTaskSyncCareless<object>());
     }
 
     [Test]

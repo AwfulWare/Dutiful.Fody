@@ -20,7 +20,7 @@ public class ModuleWeaver
     // An instance of Mono.Cecil.ModuleDefinition for processing
     public XElement Config { get; set; }
     public ModuleDefinition ModuleDefinition { get; set; }
-    private bool? assemblyFullName = true;
+    private bool? useAssemblyFullName = true;
     private string methodNameFormat;
     private string syncNameFormat;
     private TargetTypeLevel TargetLevel;
@@ -132,7 +132,7 @@ public class ModuleWeaver
             processor.Emit(OpCodes.Callvirt, generic);
         }
 
-        if (method.ReturnType != typeSystem.Void)
+        if (!method.ReturnType.IsSameAs(typeSystem.Void))
             processor.Emit(OpCodes.Pop);
 
         processor.Emit(OpCodes.Ldarg_0);
@@ -149,7 +149,35 @@ public class ModuleWeaver
 
         foreach (var method in groups.SelectMany(g => g))
         {
+            if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
+                continue;
+
+            if (StopWordForMethodName != null)
+            {
+                if (StopWordForMethodName.IsMatch(method.Name))
+                    continue;
+            }
+
+
+            if (StopWordForSignature != null)
+            {
+                if (StopWordForSignature.IsMatch(method.FullName))
+                    continue;
+            }
+
             var returnType = method.ReturnType.Resolve();
+
+            if (StopWordForReturnType != null)
+            {
+                if (returnType.IsAssignableTo(taskType, useAssemblyFullName))
+                {
+                    // TODO: check return type
+                }
+                else if (StopWordForReturnType.IsMatch(returnType.FullName))
+                {
+                    continue;
+                }
+            }
 
             Func<string, bool> isSlotOpen = n =>
             {
@@ -162,7 +190,7 @@ public class ModuleWeaver
                         continue;
 
                     if (m.Parameters.SequenceEqual(method.Parameters, (a, b)
-                        => a.ParameterType.IsSameAs(b.ParameterType, assemblyFullName)))
+                        => a.ParameterType.IsSameAs(b.ParameterType, useAssemblyFullName)))
                     {
                         return false;
                     }
@@ -171,10 +199,11 @@ public class ModuleWeaver
                 return true;
             };
 
+            #region sync
             if (syncNameFormat != null)
             {
                 var syncName = MakeSyncName(method.Name);
-                if (returnType.IsSameAs(taskType, assemblyFullName)
+                if (returnType.IsSameAs(taskType, useAssemblyFullName)
                     && isSlotOpen(syncName))
                 {
                     var sync = CloneMethodSignature(method, syncName, voidType);
@@ -201,9 +230,17 @@ public class ModuleWeaver
                         processor.Emit(OpCodes.Ret);
 
                         type.Methods.Add(sync);
+
+                        if (!method.IsStatic)
+                        {
+                            syncName = MakeDutifulName(syncName);
+                            if (isSlotOpen(syncName))
+                                type.Methods.Add(MakeDutifulVariant(sync));
+                        }
                     }
                 }
             }
+            #endregion
 
             if (method.IsStatic) continue;
 
@@ -211,29 +248,8 @@ public class ModuleWeaver
             if (!isSlotOpen(dutifulName))
                 continue;
 
-            if (returnType.IsAssignableTo(type, assemblyFullName))
+            if (returnType.IsAssignableTo(type, useAssemblyFullName))
                 continue;
-
-            if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
-                continue;
-
-            if (StopWordForReturnType != null)
-            {
-                if (StopWordForReturnType.IsMatch(returnType.FullName))
-                    continue;
-            }
-
-            if (StopWordForMethodName != null)
-            {
-                if (StopWordForMethodName.IsMatch(method.Name))
-                    continue;
-            }
-
-            if (StopWordForSignature != null)
-            {
-                if (StopWordForSignature.IsMatch(method.FullName))
-                    continue;
-            }
 
             type.Methods.Add(MakeDutifulVariant(method));
         }
