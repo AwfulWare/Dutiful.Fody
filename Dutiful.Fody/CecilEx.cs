@@ -60,20 +60,23 @@ static class CecilEx
         return _a.Name.Name == _b.Name.Name;
     }
 
-    public static bool IsAssignableFrom(this TypeDefinition target, TypeDefinition from, bool? assemblyFullName = null)
+    public static bool IsAssignableFrom(this TypeReference target, TypeReference from, bool? assemblyFullName = null)
     {
         if (target.IsSameAs(from, assemblyFullName))
             return true;
 
-        if (target.IsInterface)
-            return from.Interfaces.Any(i => i.Resolve().IsSameAs(target, assemblyFullName));
+        var targetDefinition = target.Resolve();
+        var fromDefinition = from.Resolve();
+
+        if (targetDefinition.IsInterface)
+            return fromDefinition.Interfaces.Any(i => i.Resolve().IsSameAs(target, assemblyFullName));
 
         if (target.IsValueType)
             return false;
 
-        return from.IsSubclassOf(target, assemblyFullName);
+        return fromDefinition.IsSubclassOf(targetDefinition, assemblyFullName);
     }
-    public static bool IsAssignableTo(this TypeDefinition source, TypeDefinition to, bool? assemblyFullName = null)
+    public static bool IsAssignableTo(this TypeReference source, TypeReference to, bool? assemblyFullName = null)
         => to.IsAssignableFrom(source, assemblyFullName);
 
     public static bool IsEventuallyAccessible(this TypeDefinition type)
@@ -81,7 +84,7 @@ static class CecilEx
         if (type.IsPublic)
             return true;
 
-        if (type.IsNested)
+        if (type.IsNested && type.DeclaringType.IsEventuallyAccessible())
         {
             if (type.IsNestedPublic)
                 return true;
@@ -113,29 +116,6 @@ static class CecilEx
             return true;
 
         return type.IsSubclassOf(test, assemblyFullName);
-    }
-
-    public static bool SequenceEqual<T>(this IEnumerable<T> self, IEnumerable<T> that, Func<T, T, bool> test)
-    {
-        var selfCollection = self as ICollection<T>;
-        var thatCollection = that as ICollection<T>;
-        if (selfCollection != null && thatCollection != null
-            && selfCollection.Count != thatCollection.Count)
-        {
-            return false;
-        }
-
-        var selfEnumerator = self.GetEnumerator();
-        var thatEnumerator = that.GetEnumerator();
-        while (selfEnumerator.MoveNext())
-        {
-            if (!thatEnumerator.MoveNext())
-                return false;
-
-            if (!test(selfEnumerator.Current, thatEnumerator.Current))
-                return false;
-        }
-        return !thatEnumerator.MoveNext();
     }
 
     public static bool AreMatch(IEnumerable<TypeReference> self, IEnumerable<TypeReference> test, bool? assemblyFullName = null)
