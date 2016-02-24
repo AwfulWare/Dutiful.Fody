@@ -2,5 +2,5 @@
 
 [assembly: AssemblyTitle("Dutiful.Fody")]
 [assembly: AssemblyProduct("Dutiful.Fody")]
-[assembly: AssemblyVersion("0.1")]
-[assembly: AssemblyInformationalVersion("0.1.1")]
+[assembly: AssemblyVersion("1.0")]
+[assembly: AssemblyInformationalVersion("1.0-Abaddon")]
