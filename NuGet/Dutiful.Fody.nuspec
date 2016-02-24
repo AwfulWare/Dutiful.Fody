@@ -8,7 +8,7 @@
     <owners>NanaLich</owners>
     <developmentDependency>true</developmentDependency>
     <licenseUrl>http://www.opensource.org/licenses/mit-license.php</licenseUrl>
-    <projectUrl>http://github.com/Licshee/Dutiful.Fody</projectUrl>
+    <projectUrl>https://github.com/AwfulWare/Dutiful.Fody</projectUrl>
     <language>en-US</language>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Make your methods Dutiful.</description>
