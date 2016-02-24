@@ -21,7 +21,7 @@ public class TargetClass
         type = typeof(T);
     }
 
-    public static Task GetTaskStatic() => Task.Delay(1234);
+    public static Task GetTaskStatic() => TaskEx.Delay(1234);
     public static void GetTaskStaticSyncRef()
         => Nito.AsyncEx.AsyncContext.Run(GetTaskStatic);
     public Task GetTask() => GetTaskStatic();
