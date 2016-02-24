@@ -10,7 +10,9 @@ https://nuget.org/packages/Dutiful.Fody/
 
     PM> Install-Package Dutiful.Fody
 
-## Your Code
+## What it does
+
+### Your Code
 
     public class Program
     {
@@ -20,7 +22,7 @@ https://nuget.org/packages/Dutiful.Fody/
       }
     }
 
-## What's get compiled
+### What's get compiled
 
     public class Program
     {
@@ -34,6 +36,43 @@ https://nuget.org/packages/Dutiful.Fody/
         return this;
       }
     }
+
+## How about Task?
+
+You have to explicitly specify your the name pattern you want for synchronized wrappers first:
+
+    <Dutiful SyncNameFormat="Sync"/>
+
+### Then Your Code
+
+    public class Program
+    {
+      public async Task GetTask()
+      {
+        /* do your thing */
+      }
+    }
+
+### ... is compiled to...
+
+    public class Program
+    {
+      public async Task GetTask()
+      {
+        /* do your thing */
+      }
+      public void GetTaskSync()
+      {
+        AsyncContext.Run(GetTask);
+      }
+      public void GetTaskSyncDutiful()
+      {
+        GetTaskSync();
+        return this;
+      }
+    }
+    
+**Currently only methods can cast to `Func<Task>` are supported.**
 
 ## How it selects methods
 
