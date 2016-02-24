@@ -432,7 +432,7 @@ public class ModuleWeaver
 
         if (syncNameFormat == null)
         {
-            asyncContextType = null;
+            asyncContextRun = null;
             asyncContextType = null;
             funcTaskType = null;
             funcTaskCtor = null;
