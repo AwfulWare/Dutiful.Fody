@@ -9,7 +9,7 @@ public struct TargetStruct : TargetInterface
     public Guid NOOPCareless()
         => Guid.NewGuid();
 
-    public void No() { }
+    public void No(object o = null) { }
     public void NoCareless(TargetStruct input)
     {
         Debug.WriteLine(nameof(NoCareless));

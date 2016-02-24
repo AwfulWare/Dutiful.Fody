@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Dynamic;
 using System.IO;
 using System.Reflection;
 using System.Xml.Linq;
@@ -27,8 +28,8 @@ public class WeaverTests
 
         newAssemblyPath = assemblyPath.Replace(".dll", "2.dll");
         File.Copy(assemblyPath, newAssemblyPath, true);
-        
-        var config = XElement.Parse(@"<Dutiful NameFormat=""Careless"" TargetTypeLevel=""Struct""/>");
+
+        var config = XElement.Parse(@"<Dutiful NameFormat=""Careless"" SyncNameFormat=""Sync"" TargetTypeLevel=""Struct""/>");
         config.SetAttributeValue("StopWordForReturnType", @".+\.UIntPtr");
         config.Add(new XElement("StopWordForReturnType") { Value = @"
             @System.IntPtr
@@ -67,6 +68,52 @@ public class WeaverTests
 
         instance.TypeOfCareless<object>(out type);
         Assert.AreEqual(typeof(object), type);
+    }
+
+    public class StaticMembersDynamicWrapper : DynamicObject
+    {
+        private Type _type;
+        public StaticMembersDynamicWrapper(Type type) { _type = type; }
+
+        // Handle static properties
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            PropertyInfo prop = _type.GetProperty(binder.Name, BindingFlags.FlattenHierarchy | BindingFlags.Static | BindingFlags.Public);
+            if (prop == null)
+            {
+                result = null;
+                return false;
+            }
+
+            result = prop.GetValue(null, null);
+            return true;
+        }
+
+        // Handle static methods
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        {
+            MethodInfo method = _type.GetMethod(binder.Name, BindingFlags.FlattenHierarchy | BindingFlags.Static | BindingFlags.Public);
+            if (method == null)
+            {
+                result = null;
+                return false;
+            }
+
+            result = method.Invoke(null, args);
+            return true;
+        }
+    }
+
+    [Test]
+    public void TestSync()
+    {
+        dynamic type = new StaticMembersDynamicWrapper(targetClass);
+        type.GetTaskStaticSync();
+
+        dynamic instance = Activator.CreateInstance(targetClass);
+
+        instance.GetTaskSync();
+        instance.GetTaskSync<object>();
     }
 
     [Test]

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Text;
+using System.Threading.Tasks;
 
 public class TargetClass
 {
@@ -18,6 +19,17 @@ public class TargetClass
     public virtual void TypeOf<T>(out Type type)
     {
         type = typeof(T);
+    }
+
+    public static Task GetTaskStatic() => Task.Delay(1234);
+    public static void GetTaskStaticSyncRef()
+        => Nito.AsyncEx.AsyncContext.Run(GetTaskStatic);
+    public Task GetTask() => GetTaskStatic();
+    public void GetTaskSyncRef()
+        => Nito.AsyncEx.AsyncContext.Run(GetTask);
+    public async Task GetTask<T>()
+    {
+        await GetTask();
     }
 
     public IntPtr GetIntPtr() => IntPtr.Zero;

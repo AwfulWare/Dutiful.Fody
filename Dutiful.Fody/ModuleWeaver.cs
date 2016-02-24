@@ -10,6 +10,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
 using static Mono.Cecil.MethodAttributes;
+using System.Threading.Tasks;
 
 public class ModuleWeaver
 {
@@ -19,7 +20,9 @@ public class ModuleWeaver
     // An instance of Mono.Cecil.ModuleDefinition for processing
     public XElement Config { get; set; }
     public ModuleDefinition ModuleDefinition { get; set; }
+    private bool? assemblyFullName = true;
     private string methodNameFormat;
+    private string syncNameFormat;
     private TargetTypeLevel TargetLevel;
     private Regex StopWordForDeclaringType;
     private Regex StopWordForMethodName;
@@ -28,13 +31,20 @@ public class ModuleWeaver
 
     TypeSystem typeSystem;
 
+    TypeDefinition asyncContextType;
+    MethodReference asyncContextRun;
+    MethodReference funcTaskCtor;
+    TypeReference funcTaskType;
+    TypeDefinition taskType;
+    TypeDefinition voidType;
+
     // Init logging delegates to make testing easier
     public ModuleWeaver()
     {
         LogInfo = m => { };
     }
 
-    private static void CloneGenericParametersTo(IGenericParameterProvider from, IGenericParameterProvider to)
+    private static void CopyGenericParametersTo(IGenericParameterProvider from, IGenericParameterProvider to)
     {
         var coll = to.GenericParameters;
         foreach (var param in from.GenericParameters)
@@ -50,51 +60,78 @@ public class ModuleWeaver
             foreach (var constraint in param.Constraints)
                 clone.Constraints.Add(constraint);
 
-            CloneGenericParametersTo(param, clone);
+            CopyGenericParametersTo(param, clone);
 
             coll.Add(clone);
         }
     }
-    private static void LoadArguments(ILProcessor processor, ushort count)
+    private static void LoadArguments(ILProcessor processor, ushort count, bool? loadNull = null)
     {
-        processor.Emit(OpCodes.Ldarg_0);
-        if (count < 1) return;
+        if (!loadNull.HasValue)
+        {
+            processor.Emit(OpCodes.Ldarg_0);
+            if (count < 1) return;
 
-        for (ushort i = 1; i < count; i++)
-            processor.Emit(OpCodes.Ldarg, i);
+            for (ushort i = 1; i < count; i++)
+                processor.Emit(OpCodes.Ldarg, i);
 
-        processor.Emit(OpCodes.Ldarg, count);
+            processor.Emit(OpCodes.Ldarg, count);
+        }
+        else
+        {
+            if (loadNull.Value)
+                processor.Emit(OpCodes.Ldnull);
+            if (count < 1) return;
+
+            processor.Emit(OpCodes.Ldarg_0);
+
+            for (ushort i = 1; i < count; i++)
+                processor.Emit(OpCodes.Ldarg, i);
+        }
     }
     private string MakeDutifulName(string name)
         => string.Format(methodNameFormat, name);
+    private string MakeSyncName(string name)
+        => string.Format(syncNameFormat, name);
+
+    private MethodDefinition CloneMethodSignature(MethodDefinition source, string name, TypeDefinition type)
+    {
+        var result = new MethodDefinition(name, source.Attributes, type);
+
+        var customAttributes = result.CustomAttributes;
+        foreach (var attr in source.CustomAttributes)
+            customAttributes.Add(attr);
+
+        CopyGenericParametersTo(source, result);
+
+        var parameters = result.Parameters;
+        foreach (var param in source.Parameters)
+            parameters.Add(param);
+
+        return result;
+    }
+
     private MethodDefinition MakeDutifulVariant(MethodDefinition method)
     {
         var name = string.Format(methodNameFormat, method.Name);
         LogInfo($"Weaving method \"{name}\"...");
 
-        var attributes = method.Attributes & (MemberAccessMask | HideBySig | Static);
-        var dutiful = new MethodDefinition(name, attributes, method.DeclaringType);
-
-        var customAttributes = dutiful.CustomAttributes;
-        foreach (var attr in method.CustomAttributes)
-            customAttributes.Add(attr);
-
-        CloneGenericParametersTo(method, dutiful);
-
-        var parameters = dutiful.Parameters;
-        foreach (var param in method.Parameters)
-            parameters.Add(param);
+        var dutiful = CloneMethodSignature(method, name, method.DeclaringType);
+        dutiful.Attributes &= (MemberAccessMask | HideBySig | Static);
 
         var processor = dutiful.Body.GetILProcessor();
-        LoadArguments(processor, (ushort)parameters.Count);
+        LoadArguments(processor, (ushort)method.Parameters.Count);
 
-        var generic = new GenericInstanceMethod(method);
-        foreach (var item in dutiful.GenericParameters)
-            generic.GenericArguments.Add(item);
+        if (!method.HasGenericParameters)
+            processor.Emit(OpCodes.Callvirt, method);
+        else
+        {
+            var generic = new GenericInstanceMethod(method);
+            foreach (var item in dutiful.GenericParameters)
+                generic.GenericArguments.Add(item);
+            processor.Emit(OpCodes.Callvirt, generic);
+        }
 
-        method.Resolve().GetBaseMethod();
-
-        processor.Emit(OpCodes.Callvirt, generic);
         if (method.ReturnType != typeSystem.Void)
             processor.Emit(OpCodes.Pop);
 
@@ -107,24 +144,74 @@ public class ModuleWeaver
     {
         LogInfo($"Processing type \"{type.FullName}\"...");
         var groups = type.Methods.Where(m => (m.IsPublic || m.IsFamily)
-            && !(m.IsStatic || m.IsConstructor) && m.SemanticsAttributes == MethodSemanticsAttributes.None)
+            && !m.IsConstructor && m.SemanticsAttributes == MethodSemanticsAttributes.None)
             .ToLookup(m => m.Name);
 
         foreach (var method in groups.SelectMany(g => g))
         {
-            var dutifulName = MakeDutifulName(method.Name);
-            if (groups.Contains(dutifulName))
+            var returnType = method.ReturnType.Resolve();
+
+            Func<string, bool> isSlotOpen = n =>
             {
-                if (groups[dutifulName].Any(m =>
+                if (!groups.Contains(n))
+                    return true;
+
+                foreach (var m in groups[n])
                 {
                     if (m.GenericParameters.Count != method.GenericParameters.Count)
+                        continue;
+
+                    if (m.Parameters.SequenceEqual(method.Parameters, (a, b)
+                        => a.ParameterType.IsSameAs(b.ParameterType, assemblyFullName)))
+                    {
                         return false;
-                    return m.Parameters.AreMatch(method.Parameters);
-                })) continue;
+                    }
+                }
+
+                return true;
+            };
+
+            if (syncNameFormat != null)
+            {
+                var syncName = MakeSyncName(method.Name);
+                if (returnType.IsSameAs(taskType, assemblyFullName)
+                    && isSlotOpen(syncName))
+                {
+                    var sync = CloneMethodSignature(method, syncName, voidType);
+                    sync.Attributes &= (MemberAccessMask | HideBySig | Static);
+
+                    var processor = sync.Body.GetILProcessor();
+                    var loadNull = method.IsStatic ? true : (bool?)null;
+                    LoadArguments(processor, (ushort)method.Parameters.Count, loadNull);
+
+                    if (!method.HasParameters)
+                    {
+                        if (!method.HasGenericParameters)
+                            processor.Emit(OpCodes.Ldftn, method);
+                        else
+                        {
+                            var generic = new GenericInstanceMethod(method);
+                            foreach (var item in sync.GenericParameters)
+                                generic.GenericArguments.Add(item);
+                            processor.Emit(OpCodes.Ldftn, generic);
+                        }
+                        processor.Emit(OpCodes.Newobj, funcTaskCtor);
+
+                        processor.Emit(OpCodes.Call, asyncContextRun);
+                        processor.Emit(OpCodes.Ret);
+
+                        type.Methods.Add(sync);
+                    }
+                }
             }
 
-            var returnType = method.ReturnType;
-            if (type.IsAssignableFrom(returnType.Resolve()))
+            if (method.IsStatic) continue;
+
+            var dutifulName = MakeDutifulName(method.Name);
+            if (!isSlotOpen(dutifulName))
+                continue;
+
+            if (returnType.IsAssignableTo(type, assemblyFullName))
                 continue;
 
             if (StopWordForDeclaringType.IsMatch(method.GetOriginalBaseMethod().DeclaringType.FullName))
@@ -313,16 +400,28 @@ public class ModuleWeaver
 
         StopWordForSignature = new Regex(sb.ToString());
     }
+
+    const string phName = "{0}";
+    private string GetNamePattern(string attributeName, string defaultName = null)
+    {
+        var pattern = (Config?.Attribute(attributeName)?
+            .Value?.Replace("*", phName, StringComparison.Ordinal)) ?? defaultName;
+
+        if (pattern == null)
+            return null;
+
+        var index = pattern.IndexOf(phName, StringComparison.Ordinal);
+        if (index < 0)
+            pattern = phName + pattern;
+        else if (pattern.IndexOf(phName, index + phName.Length, StringComparison.Ordinal) > index)
+            throw new FormatException(attributeName);
+
+        return pattern;
+    }
     private void SetupFromConfig()
     {
-        const string placeholder = "{0}";
-        const string nameAttr = "NameFormat";
-        methodNameFormat = (Config?.Attribute(nameAttr)?.Value?.Replace("*", placeholder, StringComparison.Ordinal)) ?? "Dutiful";
-        var index = methodNameFormat.IndexOf(placeholder, StringComparison.Ordinal);
-        if (index < 0)
-            methodNameFormat = placeholder + methodNameFormat;
-        else if (methodNameFormat.IndexOf(placeholder, index + placeholder.Length, StringComparison.Ordinal) > index)
-            throw new FormatException(nameAttr);
+        methodNameFormat = GetNamePattern("NameFormat", "Dutiful");
+        syncNameFormat = GetNamePattern("SyncNameFormat");
 
         Enum.TryParse(Config?.Attribute(nameof(TargetTypeLevel))?.Value, out TargetLevel);
 
@@ -330,5 +429,35 @@ public class ModuleWeaver
         StopWordForMethodName = MakeStopWordPatternFromConfig(nameof(StopWordForMethodName));
         StopWordForReturnType = MakeStopWordPatternFromConfig(nameof(StopWordForReturnType));
         SetupStopWordForSignature();
+
+        if (syncNameFormat == null)
+        {
+            asyncContextType = null;
+            asyncContextType = null;
+            funcTaskType = null;
+            funcTaskCtor = null;
+            taskType = null;
+            voidType = null;
+        }
+        else
+        {
+            voidType = typeSystem.Void.Resolve();
+
+            taskType = ModuleDefinition.ImportReference(typeof(Task)).Resolve();
+            var func1 = ModuleDefinition.ImportReference(typeof(Func<>)).Resolve();
+            funcTaskType = func1.MakeGenericInstanceType(taskType);
+            ModuleDefinition.ImportReference(funcTaskType);
+
+            funcTaskCtor = new MethodReference(".ctor", typeSystem.Void, funcTaskType) { HasThis = true };
+            funcTaskCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+            funcTaskCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+            funcTaskCtor = ModuleDefinition.ImportReference(funcTaskCtor);
+
+            var asyncExANR = new AssemblyNameReference("Nito.AsyncEx", new Version());
+            asyncContextType = new TypeReference("Nito.AsyncEx", "AsyncContext", ModuleDefinition, asyncExANR).Resolve();
+            asyncContextRun = new MethodReference("Run", typeSystem.Void, asyncContextType);
+            asyncContextRun.Parameters.Add(new ParameterDefinition(funcTaskType));
+            asyncContextRun = ModuleDefinition.ImportReference(asyncContextRun);
+        }
     }
 }

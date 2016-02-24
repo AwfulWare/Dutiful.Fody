@@ -3,10 +3,11 @@ using System.Linq;
 using Mono.Cecil;
 using System.Collections;
 using System.Collections.Generic;
+using Mono.Cecil.Rocks;
 
 static class CecilEx
 {
-    public static bool AreSame(TypeReference a, TypeReference b)
+    public static bool AreSame(TypeReference a, TypeReference b, bool? assemblyFullName = null)
     {
         var aIsNull = a == null;
         var bIsNull = b == null;
@@ -26,10 +27,17 @@ static class CecilEx
         if (a.FullName != b.FullName)
             return false;
 
-        return a.Module.Assembly.FullName == b.Module.Assembly.FullName;
+        if (!assemblyFullName.HasValue)
+            return true;
+
+        var _a = a.Resolve().Module.Assembly;
+        var _b = b.Resolve().Module.Assembly;
+        if (assemblyFullName.Value)
+            return _a.FullName == _b.FullName;
+        return _a.Name.Name == _b.Name.Name;
     }
 
-    public static bool IsSameAs(this TypeReference a, TypeReference b)
+    public static bool IsSameAs(this TypeReference a, TypeReference b, bool? assemblyFullName = null)
     {
         if (a == null)
             throw new NullReferenceException();
@@ -42,22 +50,31 @@ static class CecilEx
         if (a.FullName != b.FullName)
             return false;
 
-        return a.Module.Assembly.FullName == b.Module.Assembly.FullName;
-    }
-
-    public static bool IsAssignableFrom(this TypeDefinition type, TypeDefinition test)
-    {
-        if (type.IsSameAs(test))
+        if (!assemblyFullName.HasValue)
             return true;
 
-        if (type.IsInterface)
-            return test.Interfaces.Any(i => i.Resolve().IsSameAs(type));
+        var _a = a.Resolve().Module.Assembly;
+        var _b = b.Resolve().Module.Assembly;
+        if (assemblyFullName.Value)
+            return _a.FullName == _b.FullName;
+        return _a.Name.Name == _b.Name.Name;
+    }
 
-        if (type.IsValueType)
+    public static bool IsAssignableFrom(this TypeDefinition target, TypeDefinition from, bool? assemblyFullName = null)
+    {
+        if (target.IsSameAs(from, assemblyFullName))
+            return true;
+
+        if (target.IsInterface)
+            return from.Interfaces.Any(i => i.Resolve().IsSameAs(target, assemblyFullName));
+
+        if (target.IsValueType)
             return false;
 
-        return test.IsSubclassOf(type);
+        return from.IsSubclassOf(target, assemblyFullName);
     }
+    public static bool IsAssignableTo(this TypeDefinition source, TypeDefinition to, bool? assemblyFullName = null)
+        => to.IsAssignableFrom(source, assemblyFullName);
 
     public static bool IsEventuallyAccessible(this TypeDefinition type)
     {
@@ -77,7 +94,7 @@ static class CecilEx
         return false;
     }
 
-    public static bool IsSubclassOf(this TypeDefinition type, TypeDefinition test)
+    public static bool IsSubclassOf(this TypeDefinition type, TypeDefinition test, bool? assemblyFullName = null)
     {
         if (type == null)
             throw new NullReferenceException();
@@ -85,30 +102,44 @@ static class CecilEx
             throw new ArgumentNullException();
 
         if (test.IsInterface)
-            return test.IsAssignableFrom(type);
+            return test.IsAssignableFrom(type, assemblyFullName);
 
         var baseType = type.BaseType;
         if (baseType == null)
             return false;
         type = baseType.Resolve();
 
-        if (type.IsSameAs(test))
+        if (type.IsSameAs(test, assemblyFullName))
             return true;
 
-        return type.IsSubclassOf(test);
+        return type.IsSubclassOf(test, assemblyFullName);
     }
 
-    public static bool AreMatch(this IList<ParameterDefinition> self, IList<ParameterDefinition> match)
+    public static bool SequenceEqual<T>(this IEnumerable<T> self, IEnumerable<T> that, Func<T, T, bool> test)
     {
-        if (self.Count != match.Count)
-            return false;
-
-        for(var i = 0; i < self.Count; i++)
+        var selfCollection = self as ICollection<T>;
+        var thatCollection = that as ICollection<T>;
+        if (selfCollection != null && thatCollection != null
+            && selfCollection.Count != thatCollection.Count)
         {
-            if (!AreSame( self[i].ParameterType.Resolve(), match[i].ParameterType.Resolve()))
-                return false;
+            return false;
         }
 
-        return true;
+        var selfEnumerator = self.GetEnumerator();
+        var thatEnumerator = that.GetEnumerator();
+        while (selfEnumerator.MoveNext())
+        {
+            if (!thatEnumerator.MoveNext())
+                return false;
+
+            if (!test(selfEnumerator.Current, thatEnumerator.Current))
+                return false;
+        }
+        return !thatEnumerator.MoveNext();
+    }
+
+    public static bool AreMatch(IEnumerable<TypeReference> self, IEnumerable<TypeReference> test, bool? assemblyFullName = null)
+    {
+        return self.SequenceEqual(test, (a, b) => AreSame(a, b, assemblyFullName));
     }
 }
