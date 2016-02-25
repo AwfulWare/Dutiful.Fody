@@ -2,7 +2,7 @@
 
 ### This is an add-in for [Fody](https://github.com/Fody/Fody/) 
 
-Enables chaining for your instance methods.
+Enables chaining for your instance methods (AKA Fluent API).
 
 ## The nuget package  [![NuGet Status](http://img.shields.io/nuget/v/Dutiful.Fody.svg?style=flat)](https://www.nuget.org/packages/Dutiful.Fody/)
 
