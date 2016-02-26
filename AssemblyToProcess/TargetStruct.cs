@@ -7,12 +7,14 @@ public struct TargetStruct : TargetInterface
 
     public void NOOP() { }
     public Guid NOOPCareless()
-        => Guid.NewGuid();
+    {
+        throw new NotImplementedException();
+    }
 
     public void No(object o = null) { }
     public void NoCareless(TargetStruct input)
     {
-        Debug.WriteLine(nameof(NoCareless));
+        throw new NotImplementedException();
     }
 
     public void No_Thanks() { }

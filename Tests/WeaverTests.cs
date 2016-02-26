@@ -137,10 +137,10 @@ public class WeaverTests
         dynamic instance = Activator.CreateInstance(targetStruct);
 
         instance.NOOP();
-        Assert.IsInstanceOf<Guid>(instance.NOOPCareless());
+        Assert.Throws<NotImplementedException>(() => instance.NOOPCareless());
 
         instance.No();
-        instance.NoCareless(instance);
+        Assert.Throws<NotImplementedException>(() => instance.NoCareless(instance));
         Assert.AreEqual(instance, instance.NoCareless());
 
         var obj = new object();
