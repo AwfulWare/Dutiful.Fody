@@ -2,7 +2,7 @@
 
 ### This is an add-in for [Fody](https://github.com/Fody/Fody/) 
 
-Enables chaining for your instance methods.
+Enables chaining/cascading for your instance methods (AKA Fluent API).
 
 ## The nuget package  [![NuGet Status](http://img.shields.io/nuget/v/Dutiful.Fody.svg?style=flat)](https://www.nuget.org/packages/Dutiful.Fody/)
 
@@ -94,15 +94,15 @@ If you want methods of structs also get their Dutiful form, do this:
 
 To change the default suffix for generated methods, you do this:
 
-    <Dutiful NameFormat="Chaining"/>
+    <Dutiful NameFormat="Fluent"/>
 
 If you want prefix, you do this:
 
-    <Dutiful NameFormat="Do*ButDiscardResult"/>
+    <Dutiful NameFormat="Do*Fluently"/>
 
 or this:
 
-    <Dutiful NameFormat="Do{0}ButDiscardResult"/>
+    <Dutiful NameFormat="Do{0}Fluently"/>
 
 ### Stop Words
 
