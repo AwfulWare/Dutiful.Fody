@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Nito.AsyncEx;
+using System;
 using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
@@ -27,10 +28,26 @@ public class TargetClass
     public Task GetTask() => GetTaskStatic();
     public void GetTaskSyncRef()
         => Nito.AsyncEx.AsyncContext.Run(GetTask);
-    public async Task GetTask<T>()
+    public async Task<T> GetTask<T>()
+        where T : new()
     {
         await GetTask();
+        return new T();
     }
+    public async Task<T> GetTask<T>(T input)
+    {
+        await GetTask();
+        return input;
+    }
+    public async Task<int> GetTaskInt()
+    {
+        await GetTask();
+        return new Random().Next();
+    }
+    public int GetTaskIntSyncRef()
+        => AsyncContext.Run(GetTaskInt);
+    public Task<object> GetTask(object input)
+        => GetTask<object>(input);
 
     public IntPtr GetIntPtr() => IntPtr.Zero;
     public UIntPtr GetUIntPtr() => UIntPtr.Zero;

@@ -31,13 +31,20 @@ public class ModuleWeaver
     private Regex StopWordForSignature;
 
     TypeSystem typeSystem;
+    TypeDefinition voidType;
 
     TypeDefinition asyncContextType;
-    MethodReference asyncContextRun;
-    MethodReference funcTaskCtor;
-    TypeReference funcTaskType;
-    TypeDefinition taskType;
-    TypeDefinition voidType;
+    TypeDefinition func1;
+
+    MethodReference asyncContextRun0;
+    MethodReference funcTask0Ctor;
+    //TypeReference funcTask0Type;
+    TypeDefinition task0Type;
+
+    //MethodReference asyncContextRun1;
+    //MethodReference funcTask1Ctor;
+    //TypeReference funcTask1Type;
+    TypeDefinition task1Type;
 
     // Init logging delegates to make testing easier
     public ModuleWeaver()
@@ -97,7 +104,7 @@ public class ModuleWeaver
     private string MakeSyncName(string name)
         => string.Format(syncNameFormat, name);
 
-    private MethodDefinition CloneMethodSignature(MethodDefinition source, string name, TypeDefinition type)
+    private MethodDefinition CloneMethodSignature(MethodDefinition source, string name, TypeReference type)
     {
         var result = new MethodDefinition(name, source.Attributes, type);
 
@@ -146,7 +153,7 @@ public class ModuleWeaver
         return dutiful;
     }
 
-    private void AddDutifulMethods(TypeDefinition type)
+    private void GenerateDutifulMethods(TypeDefinition type)
     {
         LogInfo($"Processing type \"{type.FullName}\"...");
         var groups = type.Methods.Where(m => (m.IsPublic || m.IsFamily)
@@ -175,7 +182,7 @@ public class ModuleWeaver
 
             if (StopWordForReturnType != null)
             {
-                if (returnType.IsAssignableTo(taskType, useAssemblyFullName))
+                if (returnType.IsAssignableTo(task0Type, useAssemblyFullName))
                 {
                     // TODO: check return type
                 }
@@ -209,7 +216,7 @@ public class ModuleWeaver
             if (syncNameFormat != null)
             {
                 var syncName = MakeSyncName(method.Name);
-                if (returnType.IsAssignableTo(taskType, useAssemblyFullName)
+                if (returnType.IsAssignableTo(task0Type, useAssemblyFullName)
                     && isSlotOpen(syncName))
                 {
                     var sync = DefineSyncVariant(method);
@@ -240,7 +247,85 @@ public class ModuleWeaver
     {
         var syncName = MakeSyncName(method.Name);
 
+        var funcCtor = funcTask0Ctor;
+        var asyncContextRun = asyncContextRun0;
+
         var sync = CloneMethodSignature(method, syncName, voidType);
+
+        var returnType = method.ReturnType;
+        if (returnType.IsGenericInstance)
+        {
+            var git = returnType as GenericInstanceType;
+            if (git.ElementType.IsSameAs(task1Type, useAssemblyFullName)) // TODO: what can task be?
+            {
+                var ga = git.GenericArguments[0];
+                if (!ga.IsGenericParameter)
+                {
+                    var func = func1.MakeGenericInstanceType(git); // returns Task<T>
+                    funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
+                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+                    funcCtor = ModuleDefinition.ImportReference(funcCtor);
+
+                    asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
+                    var gp = new GenericParameter(asyncContextRun);
+                    asyncContextRun.GenericParameters.Add(gp);
+                    asyncContextRun.ReturnType = gp;
+
+                    asyncContextRun.Parameters.Add(
+                        new ParameterDefinition(
+                            func1.MakeGenericInstanceType(
+                                task1Type.MakeGenericInstanceType(gp))));
+                    var gim = new GenericInstanceMethod(asyncContextRun);
+                    gim.GenericArguments.Add(ga);
+                    asyncContextRun = ModuleDefinition.ImportReference(gim);
+
+                    sync.ReturnType = ga;
+                }
+                else
+                {
+                    //var gp = ga as GenericParameter;
+                    //if (gp.Owner == method)
+                    //{
+                    //    ga = gp = sync.GenericParameters[gp.Position];
+                    //    returnType = git = task1Type.MakeGenericInstanceType(gp);
+                    //}
+                    //else if (gp.Owner == method.DeclaringType)
+                    //{ }
+                    //else {
+                    //    throw new InvalidOperationException(); // WTH!?
+                    //}
+
+                    ////var func = func1.MakeGenericInstanceType(git); // returns Task<T>
+                    ////funcCtor = new MethodReference(".ctor", voidType) { HasThis = true };
+                    ////funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+                    ////funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+                    ////ModuleDefinition.ImportReference(funcCtor, func);
+
+                    //asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
+                    //gp = new GenericParameter(asyncContextRun);
+                    //asyncContextRun.GenericParameters.Add(gp);
+                    //asyncContextRun.ReturnType = gp;
+
+                    //asyncContextRun.Parameters.Add(
+                    //    new ParameterDefinition(
+                    //        func1.MakeGenericInstanceType(
+                    //            task1Type.MakeGenericInstanceType(gp))));
+                    //var gim = new GenericInstanceMethod(asyncContextRun);
+                    //gim.GenericArguments.Add(ga);
+                    //asyncContextRun = ModuleDefinition.ImportReference(gim, asyncContextRun);
+
+                    //sync.ReturnType = ga;
+                }
+                //else
+                //{
+
+                //    //returnType = null;
+                //}
+                ////sync.ReturnType = ga;
+            }
+        }
+
         sync.Attributes &= (MemberAccessMask | HideBySig | Static);
 
         var processor = sync.Body.GetILProcessor();
@@ -258,7 +343,7 @@ public class ModuleWeaver
                     generic.GenericArguments.Add(item);
                 processor.Emit(OpCodes.Ldftn, generic);
             }
-            processor.Emit(OpCodes.Newobj, funcTaskCtor);
+            processor.Emit(OpCodes.Newobj, funcCtor);
 
             processor.Emit(OpCodes.Call, asyncContextRun);
             processor.Emit(OpCodes.Ret);
@@ -295,7 +380,7 @@ public class ModuleWeaver
             }
 
             return false;
-        })) AddDutifulMethods(type);
+        })) GenerateDutifulMethods(type);
     }
 
     private void SetupStopWordForDeclaringType()
@@ -464,32 +549,52 @@ public class ModuleWeaver
 
         if (syncNameFormat == null)
         {
-            asyncContextRun = null;
-            asyncContextType = null;
-            funcTaskType = null;
-            funcTaskCtor = null;
-            taskType = null;
             voidType = null;
+            asyncContextType = null;
+            func1 = null;
+
+            asyncContextRun0 = null;
+            //funcTask0Type = null;
+            funcTask0Ctor = null;
+            task0Type = null;
         }
         else
         {
             voidType = typeSystem.Void.Resolve();
 
-            taskType = ModuleDefinition.ImportReference(typeof(Task)).Resolve();
-            var func1 = ModuleDefinition.ImportReference(typeof(Func<>)).Resolve();
-            funcTaskType = func1.MakeGenericInstanceType(taskType);
-            ModuleDefinition.ImportReference(funcTaskType);
-
-            funcTaskCtor = new MethodReference(".ctor", typeSystem.Void, funcTaskType) { HasThis = true };
-            funcTaskCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
-            funcTaskCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
-            funcTaskCtor = ModuleDefinition.ImportReference(funcTaskCtor);
-
             var asyncExANR = new AssemblyNameReference("Nito.AsyncEx", new Version());
             asyncContextType = new TypeReference("Nito.AsyncEx", "AsyncContext", ModuleDefinition, asyncExANR).Resolve();
-            asyncContextRun = new MethodReference("Run", typeSystem.Void, asyncContextType);
-            asyncContextRun.Parameters.Add(new ParameterDefinition(funcTaskType));
-            asyncContextRun = ModuleDefinition.ImportReference(asyncContextRun);
+            func1 = ModuleDefinition.ImportReference(typeof(Func<>)).Resolve();
+
+            task0Type = ModuleDefinition.ImportReference(typeof(Task)).Resolve();
+            var funcTask0Type = func1.MakeGenericInstanceType(task0Type);
+            //ModuleDefinition.ImportReference(funcTask0Type);
+
+            funcTask0Ctor = new MethodReference(".ctor", typeSystem.Void, funcTask0Type) { HasThis = true };
+            funcTask0Ctor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+            funcTask0Ctor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+            funcTask0Ctor = ModuleDefinition.ImportReference(funcTask0Ctor);
+
+            asyncContextRun0 = new MethodReference("Run", typeSystem.Void, asyncContextType);
+            asyncContextRun0.Parameters.Add(new ParameterDefinition(funcTask0Type));
+            asyncContextRun0 = ModuleDefinition.ImportReference(asyncContextRun0);
+
+            task1Type = ModuleDefinition.ImportReference(typeof(Task<>)).Resolve();
+            //asyncContextRun1 = new MethodReference("Run", typeSystem.Void, asyncContextType);
+            //var gp1 = new GenericParameter(asyncContextRun1);
+            //asyncContextRun1.GenericParameters.Add(gp1);
+
+            //var funcTask1Type = func1.MakeGenericInstanceType(task1Type);
+            ////ModuleDefinition.ImportReference(funcTask1Type);
+
+            //funcTask1Ctor = new MethodReference(".ctor", typeSystem.Void, funcTask1Type) { HasThis = true };
+            //funcTask1Ctor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+            //funcTask1Ctor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+            ////funcTask1Ctor = ModuleDefinition.ImportReference(funcTask1Ctor);
+
+            //asyncContextRun1.ReturnType = gp1;
+            //asyncContextRun1.Parameters.Add(new ParameterDefinition(funcTask1Type));
+            //asyncContextRun1 = ModuleDefinition.ImportReference(asyncContextRun1);
         }
     }
 }
