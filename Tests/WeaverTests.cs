@@ -120,7 +120,7 @@ public class WeaverTests
         Assert.AreSame(instance, instance.GetTaskSyncCareless());
         Assert.AreSame(instance, instance.GetTaskSyncCareless<object>());
 
-        //Assert.IsInstanceOf<object>(instance.GetTaskSync<object>());
+        Assert.IsInstanceOf<object>(instance.GetTaskSync<object>());
     }
 
     [Test]

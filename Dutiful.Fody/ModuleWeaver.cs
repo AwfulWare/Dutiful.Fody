@@ -245,12 +245,17 @@ public class ModuleWeaver
 
     private MethodDefinition DefineSyncVariant(MethodDefinition method)
     {
+        if (method.HasParameters)
+            return null;
+
         var syncName = MakeSyncName(method.Name);
 
         var funcCtor = funcTask0Ctor;
         var asyncContextRun = asyncContextRun0;
 
         var sync = CloneMethodSignature(method, syncName, voidType);
+
+        method.DeclaringType.Methods.Add(sync);
 
         var returnType = method.ReturnType;
         if (returnType.IsGenericInstance)
@@ -284,45 +289,41 @@ public class ModuleWeaver
                 }
                 else
                 {
-                    //var gp = ga as GenericParameter;
-                    //if (gp.Owner == method)
-                    //{
-                    //    ga = gp = sync.GenericParameters[gp.Position];
-                    //    returnType = git = task1Type.MakeGenericInstanceType(gp);
-                    //}
-                    //else if (gp.Owner == method.DeclaringType)
-                    //{ }
-                    //else {
-                    //    throw new InvalidOperationException(); // WTH!?
-                    //}
+                    var gp = ga as GenericParameter;
+                    if (gp.Owner == method)
+                    {
+                        ga = gp = sync.GenericParameters[gp.Position];
+                        returnType = git = task1Type.MakeGenericInstanceType(gp);
+                    }
+                    else if (gp.Owner == method.DeclaringType)
+                    { }
+                    else {
+                        throw new InvalidOperationException(); // WTH!?
+                    }
 
-                    ////var func = func1.MakeGenericInstanceType(git); // returns Task<T>
-                    ////funcCtor = new MethodReference(".ctor", voidType) { HasThis = true };
-                    ////funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
-                    ////funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
-                    ////ModuleDefinition.ImportReference(funcCtor, func);
+                    var func = func1.MakeGenericInstanceType(git); // returns Task<T>
 
-                    //asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
-                    //gp = new GenericParameter(asyncContextRun);
-                    //asyncContextRun.GenericParameters.Add(gp);
-                    //asyncContextRun.ReturnType = gp;
+                    funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
+                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+                    funcCtor = ModuleDefinition.ImportReference(funcCtor, sync);
 
-                    //asyncContextRun.Parameters.Add(
-                    //    new ParameterDefinition(
-                    //        func1.MakeGenericInstanceType(
-                    //            task1Type.MakeGenericInstanceType(gp))));
-                    //var gim = new GenericInstanceMethod(asyncContextRun);
-                    //gim.GenericArguments.Add(ga);
-                    //asyncContextRun = ModuleDefinition.ImportReference(gim, asyncContextRun);
+                    asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
+                    gp = new GenericParameter(asyncContextRun);
+                    asyncContextRun.GenericParameters.Add(gp);
+                    asyncContextRun.ReturnType = gp;
 
-                    //sync.ReturnType = ga;
+                    asyncContextRun.Parameters.Add(
+                        new ParameterDefinition(
+                            func1.MakeGenericInstanceType(
+                                task1Type.MakeGenericInstanceType(gp))));
+
+                    var gim = new GenericInstanceMethod(asyncContextRun);
+                    gim.GenericArguments.Add(ga);
+                    asyncContextRun = ModuleDefinition.ImportReference(gim, sync);
+
+                    sync.ReturnType = ga;
                 }
-                //else
-                //{
-
-                //    //returnType = null;
-                //}
-                ////sync.ReturnType = ga;
             }
         }
 
@@ -348,7 +349,7 @@ public class ModuleWeaver
             processor.Emit(OpCodes.Call, asyncContextRun);
             processor.Emit(OpCodes.Ret);
 
-            method.DeclaringType.Methods.Add(sync);
+            //method.DeclaringType.Methods.Add(sync);
 
             return sync;
         }
