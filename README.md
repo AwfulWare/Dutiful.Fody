@@ -71,7 +71,8 @@ You have to explicitly specify your the name pattern you want for synchronized w
         return this;
       }
     }
-    
+
+**This feature is based on AsyncContext of [AsyncEx](https://github.com/StephenCleary/AsyncEx), required assemblies are not installed automatically, you may want to install the [nuget package](https://www.nuget.org/packages/Nito.AsyncEx) by yourself.**  
 **Currently only methods can cast to `Func<Task>` are supported.**
 
 ## How it selects methods
