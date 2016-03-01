@@ -65,6 +65,7 @@
     <Compile Include="CecilEx.cs" />
     <Compile Include="EnumerableEx.cs" />
     <Compile Include="ModuleWeaver.cs" />
+    <Compile Include="RocksEx.cs" />
     <Compile Include="StringEx.cs" />
     <Compile Include="TargetTypeLevel.cs" />
   </ItemGroup>

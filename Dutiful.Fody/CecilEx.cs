@@ -1,120 +1,109 @@
 ﻿using System;
 using System.Linq;
-using Mono.Cecil;
-using System.Collections;
 using System.Collections.Generic;
+using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using Mono.Cecil.Cil;
 
-static class CecilEx
+static partial class CecilEx
 {
-    public static bool AreSame(TypeReference a, TypeReference b, bool? useAssemblyFullName = null)
-    {
-        var aIsNull = a == null;
-        var bIsNull = b == null;
+    private const FieldAttributes fieldAttributes = FieldAttributes.Public;
 
-        if (aIsNull)
+    //public static MethodDefinition MakeEnclosureMethods(this TypeDefinition type,
+    //        string methodName, MethodReference constructor,
+    //        IList<FieldReference> fields, FieldReference thisField = null)
+    //{
+    //    const MethodAttributes enclosureAttributes = MethodAttributes.Public | MethodAttributes.Static;
+
+    //    var hasThis = thisField != null;
+
+    //    var paramTypes = fields.Select(f => f.FieldType);
+    //    if (hasThis)
+    //        paramTypes = new[] { thisField.FieldType }.Concat(paramTypes);
+
+    //    var method = new MethodDefinition(methodName, enclosureAttributes, type);
+    //    type.Methods.Add(method);
+    //    var parameters = method.Parameters;
+
+    //    var encIL = method.Body.GetILProcessor();
+    //    method.Body.Variables.Add(new VariableDefinition(type));
+
+    //    encIL.Emit(OpCodes.Newobj, constructor);
+    //    encIL.Emit(OpCodes.Stloc_0);
+
+    //    ushort argIndex = 0;
+
+    //    if (hasThis)
+    //    {
+    //        parameters.Add(new ParameterDefinition(thisField.FieldType) { Name = "this" });
+
+    //        encIL.Emit(OpCodes.Ldloc_0);
+    //        encIL.Emit(OpCodes.Ldarg_0);
+    //        encIL.Emit(OpCodes.Stfld, thisField);
+
+    //        argIndex++;
+    //    }
+
+    //    foreach (var field in fields)
+    //    {
+    //        parameters.Add(new ParameterDefinition(thisField.FieldType) { Name = "@" + field.Name });
+
+    //        encIL.Emit(OpCodes.Ldloc_0);
+    //        encIL.Emit(OpCodes.Ldarg, argIndex);
+    //        encIL.Emit(OpCodes.Stfld, field);
+
+    //        argIndex++;
+    //    }
+
+    //    encIL.Emit(OpCodes.Ldloc_0);
+    //    encIL.Emit(OpCodes.Ret);
+
+    //    return method;
+    //}
+
+    public static TypeDefinition MakeClosureType(this ModuleDefinition module,
+        string @namespace, string typeName, TypeAttributes attributes, IEnumerable<ParameterReference> parameters,
+        out MethodDefinition constructor, TypeReference thisType)
+    {
+        var voidType = module.TypeSystem.Void;
+        if (thisType == null || thisType.IsSameAs(voidType))
+            throw new ArgumentOutOfRangeException();
+
+        var type = new TypeDefinition(@namespace, typeName, attributes);
+        module.Types.Add(type);
+
+        var fields = type.Fields;
+        var paramsColl = parameters as ICollection<ParameterReference>;
+        if (paramsColl != null)
+            fields.Capacity = paramsColl.Count + 1;
+
+        var ctor = new MethodDefinition(".ctor", MethodAttributes.RTSpecialName | MethodAttributes.SpecialName, module.TypeSystem.Void);
+        type.Methods.Add(ctor);
+
+        var @params = ctor.Parameters;
+        var il = ctor.Body.GetILProcessor();
+
+        var thisField = new FieldDefinition("this", fieldAttributes, thisType);
+        fields.Add(thisField);
+        @params.Add(new ParameterDefinition(thisType));
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Stfld, thisField);
+
+        ushort i = 1;
+        foreach(var param in parameters)
         {
-            if (bIsNull)
-                return true;
-            return false;
-        }
-        if (bIsNull)
-            return false;
-
-        if (a == b)
-            return true;
-
-        if (a.FullName != b.FullName)
-            return false;
-
-        if (!useAssemblyFullName.HasValue)
-            return true;
-
-        var _a = a.Resolve().Module.Assembly;
-        var _b = b.Resolve().Module.Assembly;
-        if (useAssemblyFullName.Value)
-            return _a.FullName == _b.FullName;
-        return _a.Name.Name == _b.Name.Name;
-    }
-
-    public static bool IsSameAs(this TypeReference a, TypeReference b, bool? useAssemblyFullName = null)
-    {
-        if (a == null)
-            throw new NullReferenceException();
-        if (b == null)
-            throw new ArgumentNullException();
-
-        if (a == b)
-            return true;
-
-        if (a.FullName != b.FullName)
-            return false;
-
-        if (!useAssemblyFullName.HasValue)
-            return true;
-
-        var _a = a.Resolve().Module.Assembly;
-        var _b = b.Resolve().Module.Assembly;
-        if (useAssemblyFullName.Value)
-            return _a.FullName == _b.FullName;
-        return _a.Name.Name == _b.Name.Name;
-    }
-
-    public static bool IsAssignableFrom(this TypeReference target, TypeReference from, bool? useAssemblyFullName = null)
-    {
-        if (target.IsSameAs(from, useAssemblyFullName))
-            return true;
-
-        var targetDefinition = target.Resolve();
-        var fromDefinition = from.Resolve();
-
-        if (targetDefinition.IsInterface)
-            return fromDefinition.Interfaces.Any(i => i.Resolve().IsSameAs(target, useAssemblyFullName));
-
-        if (target.IsValueType)
-            return false;
-
-        return fromDefinition.IsSubclassOf(targetDefinition, useAssemblyFullName);
-    }
-    public static bool IsAssignableTo(this TypeReference source, TypeReference to, bool? useAssemblyFullName = null)
-        => to.IsAssignableFrom(source, useAssemblyFullName);
-
-    public static bool IsEventuallyAccessible(this TypeDefinition type)
-    {
-        if (type.IsPublic)
-            return true;
-
-        if (type.IsNested && type.DeclaringType.IsEventuallyAccessible())
-        {
-            if (type.IsNestedPublic)
-                return true;
-            if (type.IsNestedFamily)
-                return true;
-            if (type.IsNestedFamilyOrAssembly)
-                return true;
+            var field = new FieldDefinition("@" + param.Name, fieldAttributes, param.ParameterType);
+            fields.Add(field);
+            @params.Add(new ParameterDefinition(param.ParameterType));
+            il.Emit(OpCodes.Ldarg, i);
+            il.Emit(OpCodes.Stfld, field);
+            i++;
         }
 
-        return false;
-    }
+        il.Emit(OpCodes.Ret);
 
-    public static bool IsSubclassOf(this TypeDefinition type, TypeDefinition test, bool? useAssemblyFullName = null)
-    {
-        if (type == null)
-            throw new NullReferenceException();
-        if (test == null)
-            throw new ArgumentNullException();
+        constructor = ctor;
 
-        if (test.IsInterface)
-            return test.IsAssignableFrom(type, useAssemblyFullName);
-
-        var baseType = type.BaseType;
-        if (baseType == null)
-            return false;
-        type = baseType.Resolve();
-
-        if (type.IsSameAs(test, useAssemblyFullName))
-            return true;
-
-        return type.IsSubclassOf(test, useAssemblyFullName);
+        return type;
     }
 }
