@@ -59,6 +59,9 @@ public class ModuleWeaver
         var coll = to.GenericParameters;
         foreach (var param in from.GenericParameters)
         {
+            if (param.HasGenericParameters)
+                throw new InvalidOperationException();
+
             var clone = new GenericParameter(to);
 
             clone.Name = param.Name;
@@ -69,8 +72,6 @@ public class ModuleWeaver
 
             foreach (var constraint in param.Constraints)
                 clone.Constraints.Add(constraint);
-
-            CopyGenericParametersTo(param, clone);
 
             coll.Add(clone);
         }
@@ -245,15 +246,19 @@ public class ModuleWeaver
 
     private MethodDefinition DefineSyncVariant(MethodDefinition method)
     {
-        if (method.HasParameters)
-            return null;
-
         var syncName = MakeSyncName(method.Name);
 
         var funcCtor = funcTask0Ctor;
         var asyncContextRun = asyncContextRun0;
 
         var sync = CloneMethodSignature(method, syncName, voidType);
+
+        if (method.HasParameters)
+        {
+            MethodDefinition ctor;
+            //var closureType = method.MakeClosureType(out ctor);
+            return null;
+        }
 
         method.DeclaringType.Methods.Add(sync);
 
@@ -363,7 +368,8 @@ public class ModuleWeaver
 
         SetupFromConfig();
 
-        foreach (var type in ModuleDefinition.Types.Where(t =>
+        var types = ModuleDefinition.GetTypes().ToArray();
+        foreach (var type in types.Where(t =>
         {
             if (!t.IsEventuallyAccessible())
                 return false;
