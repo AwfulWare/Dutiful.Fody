@@ -59,7 +59,7 @@ public class ModuleWeaver
         var coll = to.GenericParameters;
         foreach (var param in from.GenericParameters)
         {
-            if (param.HasGenericParameters)
+            if (param.HasGenericParameters) // this should not happen
                 throw new InvalidOperationException();
 
             var clone = new GenericParameter(to);
@@ -67,11 +67,17 @@ public class ModuleWeaver
             clone.Name = param.Name;
             clone.Attributes = param.Attributes;
 
-            foreach (var attr in param.CustomAttributes)
-                clone.CustomAttributes.Add(attr);
+            if (param.HasCustomAttributes)
+            {
+                foreach (var attr in param.CustomAttributes)
+                    clone.CustomAttributes.Add(attr);
+            }
 
-            foreach (var constraint in param.Constraints)
-                clone.Constraints.Add(constraint);
+            if (param.HasConstraints)
+            {
+                foreach (var constraint in param.Constraints)
+                    clone.Constraints.Add(constraint);
+            }
 
             coll.Add(clone);
         }
