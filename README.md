@@ -99,11 +99,11 @@ To change the default suffix for generated methods, you do this:
 
 If you want prefix, you do this:
 
-    <Dutiful NameFormat="Do*Fluently"/>
+    <Dutiful NameFormat="Call*Fluently"/>
 
 or this:
 
-    <Dutiful NameFormat="Do{0}Fluently"/>
+    <Dutiful NameFormat="Call{0}Fluently"/>
 
 ### Stop Words
 
