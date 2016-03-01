@@ -60,7 +60,7 @@ public class ModuleWeaver
         foreach (var param in from.GenericParameters)
         {
             if (param.HasGenericParameters) // this should not happen
-                throw new InvalidOperationException();
+                throw new InvalidOperationException("GenericParameters should not HasGenericParameters AFAIK");
 
             var clone = new GenericParameter(to);
 
@@ -274,33 +274,15 @@ public class ModuleWeaver
             var git = returnType as GenericInstanceType;
             if (git.ElementType.IsSameAs(task1Type, useAssemblyFullName)) // TODO: what can task be?
             {
+                asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
+                var gp = new GenericParameter(asyncContextRun);
+                asyncContextRun.GenericParameters.Add(gp);
+                asyncContextRun.ReturnType = gp;
+
                 var ga = git.GenericArguments[0];
-                if (!ga.IsGenericParameter)
+                if (ga.IsGenericParameter)
                 {
-                    var func = func1.MakeGenericInstanceType(git); // returns Task<T>
-                    funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
-                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
-                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
-                    funcCtor = ModuleDefinition.ImportReference(funcCtor);
-
-                    asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
-                    var gp = new GenericParameter(asyncContextRun);
-                    asyncContextRun.GenericParameters.Add(gp);
-                    asyncContextRun.ReturnType = gp;
-
-                    asyncContextRun.Parameters.Add(
-                        new ParameterDefinition(
-                            func1.MakeGenericInstanceType(
-                                task1Type.MakeGenericInstanceType(gp))));
-                    var gim = new GenericInstanceMethod(asyncContextRun);
-                    gim.GenericArguments.Add(ga);
-                    asyncContextRun = ModuleDefinition.ImportReference(gim);
-
-                    sync.ReturnType = ga;
-                }
-                else
-                {
-                    var gp = ga as GenericParameter;
+                    gp = ga as GenericParameter;
                     if (gp.Owner == method)
                     {
                         ga = gp = sync.GenericParameters[gp.Position];
@@ -309,32 +291,27 @@ public class ModuleWeaver
                     else if (gp.Owner == method.DeclaringType)
                     { }
                     else {
-                        throw new InvalidOperationException(); // WTH!?
+                        throw new InvalidOperationException($"I don't know who owns GenericParameter \"{gp.Name}\""); // WTH!?
                     }
-
-                    var func = func1.MakeGenericInstanceType(git); // returns Task<T>
-
-                    funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
-                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
-                    funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
-                    funcCtor = ModuleDefinition.ImportReference(funcCtor, sync);
-
-                    asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
-                    gp = new GenericParameter(asyncContextRun);
-                    asyncContextRun.GenericParameters.Add(gp);
-                    asyncContextRun.ReturnType = gp;
-
-                    asyncContextRun.Parameters.Add(
-                        new ParameterDefinition(
-                            func1.MakeGenericInstanceType(
-                                task1Type.MakeGenericInstanceType(gp))));
-
-                    var gim = new GenericInstanceMethod(asyncContextRun);
-                    gim.GenericArguments.Add(ga);
-                    asyncContextRun = ModuleDefinition.ImportReference(gim, sync);
-
-                    sync.ReturnType = ga;
                 }
+
+                var func = func1.MakeGenericInstanceType(git); // returns Task<T>
+
+                funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
+                funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
+                funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
+                funcCtor = ModuleDefinition.ImportReference(funcCtor, sync);
+
+                asyncContextRun.Parameters.Add(
+                    new ParameterDefinition(
+                        func1.MakeGenericInstanceType(
+                            task1Type.MakeGenericInstanceType(gp))));
+
+                var gim = new GenericInstanceMethod(asyncContextRun);
+                gim.GenericArguments.Add(ga);
+                asyncContextRun = ModuleDefinition.ImportReference(gim, sync);
+
+                sync.ReturnType = ga;
             }
         }
 
