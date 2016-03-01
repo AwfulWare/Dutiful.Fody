@@ -52,18 +52,25 @@ public class ModuleWeaver
         var coll = to.GenericParameters;
         foreach (var param in from.GenericParameters)
         {
+            if (param.HasGenericParameters) // this should not happen
+                throw new InvalidOperationException();
+
             var clone = new GenericParameter(to);
 
             clone.Name = param.Name;
             clone.Attributes = param.Attributes;
 
-            foreach (var attr in param.CustomAttributes)
-                clone.CustomAttributes.Add(attr);
+            if (param.HasCustomAttributes)
+            {
+                foreach (var attr in param.CustomAttributes)
+                    clone.CustomAttributes.Add(attr);
+            }
 
-            foreach (var constraint in param.Constraints)
-                clone.Constraints.Add(constraint);
-
-            CopyGenericParametersTo(param, clone);
+            if (param.HasConstraints)
+            {
+                foreach (var constraint in param.Constraints)
+                    clone.Constraints.Add(constraint);
+            }
 
             coll.Add(clone);
         }
@@ -277,7 +284,8 @@ public class ModuleWeaver
 
         SetupFromConfig();
 
-        foreach (var type in ModuleDefinition.Types.Where(t =>
+        var types = ModuleDefinition.GetTypes().ToArray();
+        foreach (var type in types.Where(t =>
         {
             if (!t.IsEventuallyAccessible())
                 return false;
