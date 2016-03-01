@@ -106,7 +106,7 @@ public class ModuleWeaver
                 processor.Emit(OpCodes.Ldarg, i);
         }
     }
-    private string MakeDutifulName(string name)
+    private string MakeFluentName(string name)
         => string.Format(methodNameFormat, name);
     private string MakeSyncName(string name)
         => string.Format(syncNameFormat, name);
@@ -128,7 +128,7 @@ public class ModuleWeaver
         return result;
     }
 
-    private MethodDefinition DefineDutifulVariant(MethodDefinition method)
+    private MethodDefinition DefineFluentVariant(MethodDefinition method)
     {
         var name = string.Format(methodNameFormat, method.Name);
         LogInfo($"Weaving method \"{name}\"...");
@@ -229,9 +229,9 @@ public class ModuleWeaver
                     var sync = DefineSyncVariant(method);
                     if (sync != null && !method.IsStatic)
                     {
-                        syncName = MakeDutifulName(syncName);
+                        syncName = MakeFluentName(syncName);
                         if (isSlotOpen(syncName))
-                            DefineDutifulVariant(sync);
+                            DefineFluentVariant(sync);
                     }
                 }
             }
@@ -239,14 +239,14 @@ public class ModuleWeaver
 
             if (method.IsStatic) continue;
 
-            var dutifulName = MakeDutifulName(method.Name);
+            var dutifulName = MakeFluentName(method.Name);
             if (!isSlotOpen(dutifulName))
                 continue;
 
             if (returnType.IsAssignableTo(type, useAssemblyFullName))
                 continue;
 
-            DefineDutifulVariant(method);
+            DefineFluentVariant(method);
         }
     }
 
@@ -271,47 +271,48 @@ public class ModuleWeaver
         var returnType = method.ReturnType;
         if (returnType.IsGenericInstance)
         {
-            var git = returnType as GenericInstanceType;
-            if (git.ElementType.IsSameAs(task1Type, useAssemblyFullName)) // TODO: what can task be?
+            var taskT = (GenericInstanceType)returnType;
+            if (taskT.ElementType.IsSameAs(task1Type, useAssemblyFullName)) // TODO: what can task be?
             {
                 asyncContextRun = new MethodReference("Run", voidType, asyncContextType); // returns T
-                var gp = new GenericParameter(asyncContextRun);
-                asyncContextRun.GenericParameters.Add(gp);
-                asyncContextRun.ReturnType = gp;
+                var g = new GenericParameter(asyncContextRun);
+                asyncContextRun.GenericParameters.Add(g);
+                asyncContextRun.ReturnType = g;
 
-                var ga = git.GenericArguments[0];
-                if (ga.IsGenericParameter)
+                asyncContextRun.Parameters.Add(
+                    new ParameterDefinition(
+                        func1.MakeGenericInstanceType(
+                            task1Type.MakeGenericInstanceType(g))));
+
+                var T = taskT.GenericArguments[0]; // T of Task<T>
+                if (T.IsGenericParameter) // this T is from somewhere else
                 {
-                    gp = ga as GenericParameter;
-                    if (gp.Owner == method)
-                    {
-                        ga = gp = sync.GenericParameters[gp.Position];
-                        returnType = git = task1Type.MakeGenericInstanceType(gp);
+                    g = (GenericParameter)T; // from now on g will no longer be used for other purpose
+                    if (g.Owner == method)
+                    {   
+                        // translate from that of proto method to of generated method
+                        T = sync.GenericParameters[g.Position];
+                        taskT = task1Type.MakeGenericInstanceType(T);
                     }
-                    else if (gp.Owner == method.DeclaringType)
+                    else if (g.Owner == method.DeclaringType)
                     { }
                     else {
-                        throw new InvalidOperationException($"I don't know who owns GenericParameter \"{gp.Name}\""); // WTH!?
+                        throw new InvalidOperationException($"I don't know who owns GenericParameter \"{g.Name}\""); // WTH!?
                     }
                 }
 
-                var func = func1.MakeGenericInstanceType(git); // returns Task<T>
+                var func = func1.MakeGenericInstanceType(taskT); // returns Task<T>
 
                 funcCtor = new MethodReference(".ctor", voidType, func) { HasThis = true };
                 funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.Object));
                 funcCtor.Parameters.Add(new ParameterDefinition(typeSystem.IntPtr));
                 funcCtor = ModuleDefinition.ImportReference(funcCtor, sync);
 
-                asyncContextRun.Parameters.Add(
-                    new ParameterDefinition(
-                        func1.MakeGenericInstanceType(
-                            task1Type.MakeGenericInstanceType(gp))));
+                var runT = new GenericInstanceMethod(asyncContextRun);
+                runT.GenericArguments.Add(T);
+                asyncContextRun = ModuleDefinition.ImportReference(runT, sync);
 
-                var gim = new GenericInstanceMethod(asyncContextRun);
-                gim.GenericArguments.Add(ga);
-                asyncContextRun = ModuleDefinition.ImportReference(gim, sync);
-
-                sync.ReturnType = ga;
+                sync.ReturnType = T;
             }
         }
 
